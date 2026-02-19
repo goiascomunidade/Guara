@@ -1,0 +1,26 @@
+{
+  "tool_id": "weather_tool",
+  "name": "weather_tool",
+  "version": "0.1.0",
+  "description": "Get weather data for a city.",
+  "capabilities": ["read"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "city": {"type": "string"},
+      "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}
+    },
+    "required": ["city"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "message": {"type": "string"},
+      "data": {"type": "object"}
+    },
+    "required": ["message", "data"]
+  },
+  "compatibility": {
+    "guara_core": ">=0.1.0,<1.0.0"
+  }
+}

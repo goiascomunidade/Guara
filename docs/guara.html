@@ -1,0 +1,3087 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guará — Voice-to-Voice Agent Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════════ */
+:root {
+  --ink:          #07131C;
+  --teal:         #0D1F2D;
+  --teal-mid:     #132738;
+  --teal-up:      #1A3346;
+  --orange:       #E85820;
+  --orange-b:     #FF6B30;
+  --orange-glow:  rgba(232, 88, 32, 0.22);
+  --gold:         #C8852A;
+  --cream:        #F4EEE5;
+  --muted:        rgba(244, 238, 229, 0.52);
+  --dim:          rgba(244, 238, 229, 0.22);
+  --line:         rgba(232, 88, 32, 0.14);
+}
+
+/* ═══════════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
+  height: 100%;
+  overflow-y: scroll;
+}
+
+body {
+  font-family: 'Crimson Pro', Georgia, serif;
+  background: var(--ink);
+  color: var(--cream);
+  height: 100%;
+  cursor: default;
+}
+
+/* ═══════════════════════════════════════════════
+   NAVIGATION RAIL
+═══════════════════════════════════════════════ */
+.nav-rail {
+  position: fixed;
+  right: 2.2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  align-items: flex-end;
+}
+
+.nav-dot {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  padding: 0.15rem 0;
+}
+
+.nav-dot-pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(232, 88, 32, 0.5);
+  background: transparent;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  flex-shrink: 0;
+}
+
+.nav-dot-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  color: rgba(232, 88, 32, 0.5);
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateX(6px);
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.nav-dot:hover .nav-dot-label,
+.nav-dot.active .nav-dot-label {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--orange);
+}
+
+.nav-dot.active .nav-dot-pip,
+.nav-dot:hover .nav-dot-pip {
+  background: var(--orange);
+  border-color: var(--orange);
+  box-shadow: 0 0 10px var(--orange-glow), 0 0 20px var(--orange-glow);
+  transform: scale(1.3);
+}
+
+/* ═══════════════════════════════════════════════
+   SECTION BASE
+═══════════════════════════════════════════════ */
+.level {
+  min-height: 100vh;
+  scroll-snap-align: start;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════
+   LEVEL 0 — HERO
+═══════════════════════════════════════════════ */
+#L0 {
+  background: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* scanline texture */
+#L0::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0,0,0,0.05) 3px,
+    rgba(0,0,0,0.05) 4px
+  );
+  z-index: 1;
+  pointer-events: none;
+}
+
+#particle-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-inner {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+  gap: 0;
+}
+
+#wolf-svg {
+  width: min(460px, 88vw);
+  height: auto;
+  margin-bottom: -0.5rem;
+  animation: wolf-float 9s ease-in-out infinite;
+  filter: drop-shadow(0 0 32px rgba(232, 88, 32, 0.18));
+}
+
+@keyframes wolf-float {
+  0%,100% { transform: translateY(0px) rotate(0deg); }
+  30%      { transform: translateY(-10px) rotate(0.4deg); }
+  65%      { transform: translateY(5px) rotate(-0.3deg); }
+}
+
+.hero-eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(0.58rem, 1.2vw, 0.72rem);
+  letter-spacing: 0.35em;
+  color: var(--orange);
+  text-transform: uppercase;
+  opacity: 0;
+  animation: fade-up 0.8s cubic-bezier(0.16,1,0.3,1) 1.6s forwards;
+}
+
+.hero-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(5.5rem, 18vw, 14rem);
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: var(--cream);
+  text-shadow: 0 0 60px rgba(232,88,32,0.25), 0 0 120px rgba(232,88,32,0.1);
+  opacity: 0;
+  animation: fade-up 1s cubic-bezier(0.16,1,0.3,1) 1.85s forwards;
+}
+
+.hero-title em {
+  font-style: normal;
+  color: var(--orange);
+}
+
+.hero-tagline {
+  font-family: 'Crimson Pro', serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(1.1rem, 2.2vw, 1.55rem);
+  color: var(--muted);
+  margin-top: 1.4rem;
+  max-width: 44ch;
+  line-height: 1.55;
+  opacity: 0;
+  animation: fade-up 0.8s cubic-bezier(0.16,1,0.3,1) 2.1s forwards;
+}
+
+.hero-badges {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 2.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  opacity: 0;
+  animation: fade-up 0.7s cubic-bezier(0.16,1,0.3,1) 2.35s forwards;
+}
+
+.badge {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 1px;
+  color: var(--muted);
+  transition: all 0.3s;
+}
+
+.badge:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgba(232,88,32,0.06);
+}
+
+.scroll-hint {
+  position: absolute;
+  bottom: 2.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  color: var(--dim);
+  text-transform: uppercase;
+  animation: scroll-bounce 2.4s ease-in-out infinite 3s;
+  opacity: 0;
+}
+
+.scroll-hint { animation: scroll-bounce 2.4s ease-in-out 3s infinite, fade-up 0.5s ease 3s forwards; }
+
+.scroll-hint svg { width: 18px; opacity: 0.5; }
+
+@keyframes scroll-bounce {
+  0%,100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(8px); }
+}
+
+/* ═══════════════════════════════════════════════
+   LEVEL 1 — VISION
+═══════════════════════════════════════════════ */
+#L1 {
+  background: var(--teal);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+}
+
+.vision-left {
+  padding: clamp(3rem, 9vh, 8rem) clamp(2.5rem, 7vw, 8rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid var(--line);
+}
+
+.vision-right {
+  padding: clamp(3rem, 9vh, 8rem) clamp(2.5rem, 7vw, 8rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.6rem;
+}
+
+.level-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.28em;
+  color: var(--orange);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.8rem;
+}
+
+.level-label::before {
+  content: '';
+  display: block;
+  width: 2rem;
+  height: 1px;
+  background: var(--orange);
+}
+
+.section-h {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  color: var(--cream);
+  margin-bottom: 1.6rem;
+}
+
+.section-body {
+  font-size: clamp(1rem, 1.4vw, 1.2rem);
+  line-height: 1.75;
+  color: var(--muted);
+  font-weight: 300;
+  max-width: 44ch;
+}
+
+.section-body + .section-body { margin-top: 1rem; }
+
+.kpi {
+  display: flex;
+  gap: 1.4rem;
+  align-items: flex-start;
+  padding: 1.4rem 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(232,88,32,0.03);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, background 0.3s;
+}
+
+.kpi::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--orange);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.4s ease;
+}
+
+.kpi:hover::after { transform: scaleY(1); }
+.kpi:hover { border-color: rgba(232,88,32,0.28); background: rgba(232,88,32,0.06); }
+
+.kpi-val {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--orange);
+  flex-shrink: 0;
+  min-width: 72px;
+}
+
+.kpi-info { padding-top: 0.25rem; }
+
+.kpi-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--cream);
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.01em;
+}
+
+.kpi-text {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* ═══════════════════════════════════════════════
+   LEVEL 2 — ARCHITECTURE
+═══════════════════════════════════════════════ */
+#L2 {
+  background: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(3rem, 8vh, 6rem) clamp(2rem, 6vw, 8rem);
+}
+
+.arch-wrap {
+  width: 100%;
+  max-width: 1080px;
+}
+
+.arch-head { margin-bottom: 2.8rem; }
+
+.arch-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.arch-row {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.arch-num {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--dim);
+  width: 1.2rem;
+  text-align: right;
+  flex-shrink: 0;
+  letter-spacing: 0.05em;
+}
+
+.arch-bar {
+  flex: 1;
+  border: 1px solid;
+  border-radius: 2px;
+  padding: 0.85rem 1.6rem;
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  transition: filter 0.3s;
+}
+
+.arch-bar:hover { filter: brightness(1.12); }
+
+.arch-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04) 50%, transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.arch-bar:hover::after { transform: translateX(100%); }
+
+.r-transport .arch-bar { border-color: rgba(232,88,32,0.55); background: rgba(232,88,32,0.08); }
+.r-runtime   .arch-bar { border-color: rgba(200,133,42,0.45); background: rgba(200,133,42,0.07); }
+.r-core      .arch-bar { border-color: rgba(244,238,229,0.18); background: rgba(244,238,229,0.03); }
+.r-provider  .arch-bar { border-color: rgba(244,238,229,0.13); background: rgba(244,238,229,0.02); }
+.r-plugin    .arch-bar { border-color: rgba(244,238,229,0.1);  background: rgba(244,238,229,0.015); }
+
+.arch-layer-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  min-width: 120px;
+}
+
+.r-transport .arch-layer-name { color: var(--orange); }
+.r-runtime   .arch-layer-name { color: var(--gold); }
+.r-core      .arch-layer-name,
+.r-provider  .arch-layer-name,
+.r-plugin    .arch-layer-name { color: var(--cream); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; flex: 1; }
+
+.chip {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 1px;
+  border: 1px solid rgba(244,238,229,0.13);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: all 0.25s;
+}
+
+.chip:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgba(232,88,32,0.07);
+}
+
+.arch-arrow {
+  text-align: center;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--dim);
+  margin-left: calc(1.2rem + 1.2rem + 0.4px);
+  padding: 0.1rem 0;
+}
+
+/* ═══════════════════════════════════════════════
+   LEVEL 3 — COMPONENTS
+═══════════════════════════════════════════════ */
+#L3 {
+  background: var(--teal-mid);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(3rem, 8vh, 6rem) clamp(2rem, 5vw, 7rem);
+}
+
+.comp-wrap {
+  width: 100%;
+  max-width: 1100px;
+}
+
+.comp-head { margin-bottom: 2.5rem; }
+
+.comp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1px;
+  border: 1px solid rgba(232,88,32,0.12);
+  background: rgba(232,88,32,0.08);
+}
+
+.comp-card {
+  background: var(--teal-mid);
+  padding: 1.8rem 1.6rem;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.3s;
+}
+
+.comp-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--orange), var(--gold));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+
+.comp-card:hover { background: var(--teal-up); }
+.comp-card:hover::before { transform: scaleX(1); }
+
+.comp-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--orange);
+  margin-bottom: 1rem;
+  opacity: 0.85;
+}
+
+.comp-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--cream);
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.01em;
+}
+
+.comp-file {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.57rem;
+  color: var(--orange);
+  letter-spacing: 0.05em;
+  margin-bottom: 0.85rem;
+  opacity: 0.65;
+}
+
+.comp-desc {
+  font-size: 0.87rem;
+  line-height: 1.65;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+/* ═══════════════════════════════════════════════
+   LEVEL 4 — TRANSPORT
+═══════════════════════════════════════════════ */
+#L4 {
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(3rem, 8vh, 6rem) clamp(2rem, 5vw, 7rem);
+}
+
+.transport-wrap {
+  width: 100%;
+  max-width: 1100px;
+}
+
+.transport-head { margin-bottom: 2.5rem; }
+
+.transport-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.2rem;
+}
+
+.t-panel {
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.t-head {
+  background: rgba(232,88,32,0.1);
+  padding: 0.9rem 1.4rem;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--orange);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.t-body {
+  padding: 1rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.ep {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(244,238,229,0.05);
+}
+
+.m {
+  font-weight: 700;
+  font-size: 0.56rem;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.m-get  { color: #5DB88A; border: 1px solid rgba(93,184,138,0.3); }
+.m-post { color: var(--orange-b); border: 1px solid rgba(232,88,32,0.35); }
+.m-ws   { color: #6BA5D8; border: 1px solid rgba(107,165,216,0.3); }
+.m-sse  { color: var(--gold); border: 1px solid rgba(200,133,42,0.3); }
+
+.ep-path { color: var(--muted); line-height: 1.5; word-break: break-all; }
+
+.flow {
+  padding: 0.8rem 1.4rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  border-top: 1px solid var(--line);
+}
+
+.flow-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+
+.flow-pip {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: pip-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes pip-pulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.65); }
+}
+
+.flow-row:nth-child(1) .flow-pip { background: var(--orange);    animation-delay: 0s; }
+.flow-row:nth-child(2) .flow-pip { background: var(--orange-b);  animation-delay: 0.35s; }
+.flow-row:nth-child(3) .flow-pip { background: var(--gold);      animation-delay: 0.7s; }
+.flow-row:nth-child(4) .flow-pip { background: #5DB88A;          animation-delay: 1.05s; }
+.flow-row:nth-child(5) .flow-pip { background: #6BA5D8;          animation-delay: 1.4s; }
+.flow-row:nth-child(6) .flow-pip { background: var(--gold);      animation-delay: 1.75s; animation: none; opacity: 0.8; }
+
+.flow-head {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 0.15rem;
+}
+
+/* Session states */
+.states-wrap {
+  padding: 0.8rem 1.4rem 1.2rem;
+  border-top: 1px solid var(--line);
+}
+
+.states-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 0.7rem;
+}
+
+.states-track {
+  display: flex;
+  gap: 0;
+}
+
+.state {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.52rem;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.03em;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.state:hover {
+  background: rgba(232,88,32,0.1);
+  border-color: var(--orange);
+  color: var(--orange);
+}
+
+/* ═══════════════════════════════════════════════
+   LEVEL 5 — ROADMAP
+═══════════════════════════════════════════════ */
+#L5 {
+  background: var(--teal);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(3rem, 8vh, 6rem) clamp(2rem, 5vw, 7rem);
+}
+
+.road-wrap {
+  width: 100%;
+  max-width: 1100px;
+}
+
+.road-head { margin-bottom: 2.8rem; }
+
+.road-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.2rem;
+  margin-bottom: 3rem;
+}
+
+.road-card {
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 1.6rem;
+  position: relative;
+  transition: border-color 0.3s;
+}
+
+.road-card:hover { border-color: rgba(232,88,32,0.3); }
+
+.road-phase {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  color: var(--orange);
+  margin-bottom: 0.6rem;
+  text-transform: uppercase;
+}
+
+.road-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--cream);
+  margin-bottom: 0.9rem;
+}
+
+.road-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.road-item {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.road-item::before {
+  content: '—';
+  color: var(--orange);
+  flex-shrink: 0;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem;
+  margin-top: 0.2rem;
+  opacity: 0.6;
+}
+
+.road-status {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.1rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.1em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 1px;
+  text-transform: uppercase;
+}
+
+.status-done    { color: #5DB88A; border: 1px solid rgba(93,184,138,0.3); background: rgba(93,184,138,0.05); }
+.status-active  { color: var(--orange); border: 1px solid rgba(232,88,32,0.35); background: rgba(232,88,32,0.06);
+                  animation: status-blink 2s ease-in-out infinite; }
+.status-next    { color: var(--muted); border: 1px solid var(--line); }
+
+@keyframes status-blink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+/* Quick start */
+.qstart {
+  border-top: 1px solid var(--line);
+  padding-top: 2.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.code-block { }
+
+.code-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  color: var(--orange);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.code-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+pre {
+  background: rgba(0,0,0,0.38);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 1.3rem 1.4rem;
+  overflow-x: auto;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  line-height: 1.85;
+  color: var(--cream);
+}
+
+pre .c  { color: rgba(244,238,229,0.28); }
+pre .kw { color: var(--orange-b); }
+pre .st { color: #8EC98F; }
+pre .fn { color: var(--gold); }
+pre .ps { color: var(--orange); user-select: none; }
+
+/* ═══════════════════════════════════════════════
+   FOOTER STRIP
+═══════════════════════════════════════════════ */
+.footer-strip {
+  background: var(--ink);
+  border-top: 1px solid var(--line);
+  padding: 1.5rem clamp(2rem, 5vw, 7rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  scroll-snap-align: end;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--orange);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+
+/* ═══════════════════════════════════════════════
+   REVEAL ANIMATIONS
+═══════════════════════════════════════════════ */
+.rv {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.75s ease, transform 0.75s ease;
+}
+
+.rv.show { opacity: 1; transform: translateY(0); }
+.rv.d1 { transition-delay: 0.1s; }
+.rv.d2 { transition-delay: 0.2s; }
+.rv.d3 { transition-delay: 0.3s; }
+.rv.d4 { transition-delay: 0.42s; }
+.rv.d5 { transition-delay: 0.55s; }
+.rv.d6 { transition-delay: 0.68s; }
+
+/* ═══════════════════════════════════════════════
+   ARCH LAYER REVEAL
+═══════════════════════════════════════════════ */
+.arch-row {
+  opacity: 0;
+  transform: translateX(-24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.arch-row.show { opacity: 1; transform: translateX(0); }
+
+/* ═══════════════════════════════════════════════
+   L2 — JORNADA DA VOZ
+═══════════════════════════════════════════════ */
+#L2 {
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(2rem,5vh,4rem) clamp(1.5rem,4vw,5rem);
+}
+.journey-wrap { width: 100%; max-width: 980px; }
+.journey-svg  { width: 100%; height: auto; overflow: visible; display: block; }
+.j-node-rect  { transition: filter 0.3s ease; }
+.j-note {
+  margin-top: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+}
+.j-note-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--orange);
+  flex-shrink: 0;
+  animation: pip-pulse 2s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════
+   L2b — TRADICIONAL vs GUARÁ
+═══════════════════════════════════════════════ */
+#L2b {
+  background: var(--teal);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+}
+.cmp-panel {
+  padding: clamp(2.5rem,7vh,6rem) clamp(2rem,5vw,6rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.cmp-panel.trad { border-right: 1px solid rgba(244,238,229,0.05); }
+.cmp-tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.cmp-panel.trad .cmp-tag { color: rgba(244,238,229,0.28); }
+.cmp-panel.guar .cmp-tag { color: var(--orange); }
+.cmp-h {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.7rem,3vw,3rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.6rem;
+}
+.cmp-panel.trad .cmp-h { color: rgba(244,238,229,0.35); }
+.cmp-panel.guar .cmp-h { color: var(--cream); }
+.cmp-svg { width: 100%; height: auto; margin-bottom: 1.6rem; display: block; }
+.cmp-list { display: flex; flex-direction: column; gap: 0.55rem; }
+.cmp-item { display: flex; align-items: flex-start; gap: 0.65rem; font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+.cmp-bullet { flex-shrink: 0; margin-top: 0.2rem; font-size: 0.7rem; }
+.cmp-panel.trad .cmp-bullet { color: rgba(220,90,80,0.55); }
+.cmp-panel.guar .cmp-bullet { color: var(--orange); }
+
+/* Sequential bar animation (traditional) */
+@keyframes seq1 {
+  0%,3%    { width:0% }  30%,97%  { width:100% }  98%,100% { width:0% }
+}
+@keyframes seq2 {
+  0%,30%   { width:0% }  60%,97%  { width:100% }  98%,100% { width:0% }
+}
+@keyframes seq3 {
+  0%,60%   { width:0% }  90%,97%  { width:100% }  98%,100% { width:0% }
+}
+@keyframes par {
+  0%,3%    { width:0% }  35%,100% { width:100% }
+}
+.cmp-bars { margin-top: 1.2rem; }
+.cmp-bars-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 0.7rem;
+}
+.cmp-panel.trad .cmp-bars-label { color: rgba(244,238,229,0.2); }
+.cmp-panel.guar .cmp-bars-label { color: rgba(232,88,32,0.5); }
+.bar-row { display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.45rem; }
+.bar-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--dim);
+  width: 52px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.bar-track { flex:1; height:5px; background: rgba(244,238,229,0.07); border-radius:3px; overflow:hidden; }
+.bar-fill  { height:100%; border-radius:3px; }
+.bar-fill.s1 { background: rgba(150,150,160,0.4); animation: seq1 4s linear infinite; }
+.bar-fill.s2 { background: rgba(150,150,160,0.4); animation: seq2 4s linear infinite; }
+.bar-fill.s3 { background: rgba(150,150,160,0.4); animation: seq3 4s linear infinite; }
+.bar-fill.p  { background: linear-gradient(90deg, var(--orange), var(--gold)); animation: par 4s linear infinite; }
+
+/* ═══════════════════════════════════════════════
+   L2c — OS 4 SUPERPODERES
+═══════════════════════════════════════════════ */
+#L2c {
+  background: var(--teal-mid);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(2.5rem,6vh,5rem) clamp(2rem,5vw,7rem);
+}
+.powers-wrap { width:100%; max-width:1100px; }
+.powers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.pw {
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 1.8rem;
+  position: relative;
+  overflow: hidden;
+  background: rgba(7,19,28,0.55);
+  transition: border-color 0.3s;
+}
+.pw:hover { border-color: rgba(232,88,32,0.3); }
+.pw-num {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 4.5rem;
+  line-height: 1;
+  color: rgba(232,88,32,0.09);
+  position: absolute;
+  top: 0; right: 0.9rem;
+  pointer-events: none;
+  user-select: none;
+}
+.pw-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--cream);
+  margin-bottom: 0.25rem;
+}
+.pw-sub {
+  font-size: 0.86rem;
+  color: var(--muted);
+  font-weight: 300;
+  line-height: 1.55;
+  margin-bottom: 1.3rem;
+  max-width: 36ch;
+}
+.pw-vis { height: 90px; position: relative; display: flex; align-items: center; }
+
+/* Waveform (barge-in) */
+.wv-svg { width:100%; height:90px; overflow:visible; }
+.wv-agent { fill:none; stroke:var(--orange); stroke-width:1.8; opacity:0.85; }
+.wv-user  { fill:none; stroke:#6BA5D8; stroke-width:1.8; opacity:0; }
+.wv-flat  { fill:none; stroke:rgba(232,88,32,0.25); stroke-width:1.5; }
+
+/* Progress bars (parallel comparison) */
+.pb-vis { display:flex; gap:1.2rem; width:100%; align-items:flex-start; }
+.pb-col { flex:1; }
+.pb-col-label {
+  font-family:'Space Mono',monospace;
+  font-size:0.52rem;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  margin-bottom:0.6rem;
+  padding-bottom:0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+.pb-col.trad .pb-col-label { color:rgba(244,238,229,0.25); }
+.pb-col.guar .pb-col-label { color:var(--orange); }
+.pb-row { margin-bottom:0.45rem; }
+.pb-track { height:5px; background:rgba(244,238,229,0.07); border-radius:3px; overflow:hidden; margin-top:0.2rem; }
+.pb-fill { height:100%; border-radius:3px; width:0%; }
+.pb-col.trad .pb-fill { background:rgba(140,140,150,0.5); }
+.pb-col.guar .pb-fill { background:linear-gradient(90deg,var(--orange),var(--gold)); }
+.pb-name { font-family:'Space Mono',monospace; font-size:0.52rem; color:var(--dim); }
+
+/* Provider slots */
+.slot-vis { display:flex; flex-direction:column; gap:0.45rem; width:100%; }
+.prov-slot {
+  display:flex; align-items:center; gap:0.6rem;
+  padding:0.42rem 0.75rem;
+  border:1px solid var(--line); border-radius:2px;
+  background:rgba(232,88,32,0.03);
+  font-family:'Space Mono',monospace; font-size:0.6rem;
+}
+.prov-type { font-size:0.5rem; letter-spacing:0.14em; color:var(--dim); text-transform:uppercase; min-width:28px; }
+.prov-val  { color:var(--orange); font-weight:700; transition:opacity 0.2s; }
+.prov-dot  { width:5px; height:5px; border-radius:50%; background:var(--orange); margin-left:auto; flex-shrink:0; animation:pip-pulse 2.2s ease-in-out infinite; }
+.prov-slot:nth-child(2) .prov-dot { animation-delay:0.7s; }
+.prov-slot:nth-child(3) .prov-dot { animation-delay:1.4s; }
+
+/* Streaming chunks */
+.stream-vis { display:flex; flex-wrap:wrap; gap:0.3rem; align-content:flex-start; width:100%; }
+.sch {
+  font-family:'Space Mono',monospace; font-size:0.56rem;
+  padding:0.18rem 0.42rem;
+  background:rgba(232,88,32,0.1); border:1px solid rgba(232,88,32,0.22);
+  border-radius:1px; color:var(--orange);
+  opacity:0; transform:translateY(5px);
+  transition:opacity 0.22s ease, transform 0.22s ease;
+}
+.sch.show { opacity:1; transform:translateY(0); }
+
+/* ═══════════════════════════════════════════════
+   GLOBAL UTILS
+═══════════════════════════════════════════════ */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 800px) {
+  #L1 { grid-template-columns: 1fr; }
+  .vision-left { border-right: none; border-bottom: 1px solid var(--line); }
+  .transport-grid { grid-template-columns: 1fr; }
+  .qstart { grid-template-columns: 1fr; }
+  .nav-rail { right: 1rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── NAVIGATION ── -->
+<nav class="nav-rail" id="nav-rail">
+  <div class="nav-dot active" data-sid="L0" onclick="goSection('L0')">
+    <span class="nav-dot-label">Início</span>
+    <div class="nav-dot-pip"></div>
+  </div>
+  <div class="nav-dot" data-sid="L1" onclick="goSection('L1')">
+    <span class="nav-dot-label">Visão</span>
+    <div class="nav-dot-pip"></div>
+  </div>
+  <div class="nav-dot" data-sid="L2" onclick="goSection('L2')">
+    <span class="nav-dot-label">Jornada da Voz</span>
+    <div class="nav-dot-pip"></div>
+  </div>
+  <div class="nav-dot" data-sid="L2b" onclick="goSection('L2b')">
+    <span class="nav-dot-label">Tradicional vs Guará</span>
+    <div class="nav-dot-pip"></div>
+  </div>
+  <div class="nav-dot" data-sid="L2c" onclick="goSection('L2c')">
+    <span class="nav-dot-label">Superpoderes</span>
+    <div class="nav-dot-pip"></div>
+  </div>
+  <div class="nav-dot" data-sid="L2d" onclick="goSection('L2d')">
+    <span class="nav-dot-label">Níveis</span>
+    <div class="nav-dot-pip"></div>
+  </div>
+  <div class="nav-dot" data-sid="L3" onclick="goSection('L3')">
+    <span class="nav-dot-label">Componentes</span>
+    <div class="nav-dot-pip"></div>
+  </div>
+  <div class="nav-dot" data-sid="L4" onclick="goSection('L4')">
+    <span class="nav-dot-label">Transporte</span>
+    <div class="nav-dot-pip"></div>
+  </div>
+  <div class="nav-dot" data-sid="L5" onclick="goSection('L5')">
+    <span class="nav-dot-label">Roadmap</span>
+    <div class="nav-dot-pip"></div>
+  </div>
+</nav>
+
+
+<!-- ══════════════════════════════════════════════
+     LEVEL 0 · HERO
+══════════════════════════════════════════════ -->
+<section id="L0" class="level">
+  <canvas id="particle-canvas"></canvas>
+
+  <div class="hero-inner">
+
+    <!-- LOBO GUARÁ SVG MASCOT (constellation / wireframe style) -->
+    <svg id="wolf-svg" viewBox="0 0 380 310"
+         xmlns="http://www.w3.org/2000/svg"
+         aria-label="Lobo Guará — mascote do projeto Guará">
+      <defs>
+        <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="softglow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="6" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <radialGradient id="eyeGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="#FF9050"/>
+          <stop offset="100%" stop-color="#E85820"/>
+        </radialGradient>
+      </defs>
+
+      <!-- Lines group (drawn by JS) -->
+      <g id="wl" opacity="0.6" filter="url(#glow)"></g>
+
+      <!-- Dots group (drawn by JS) -->
+      <g id="wd"></g>
+
+      <!-- Eye glow (special — always rendered) -->
+      <circle cx="316" cy="68" r="14" fill="#E85820" opacity="0">
+        <animate attributeName="opacity" values="0;0.12;0.06;0.16;0.08" dur="4s" repeatCount="indefinite" begin="2.5s"/>
+      </circle>
+      <circle cx="316" cy="68" r="5" fill="url(#eyeGrad)" filter="url(#softglow)" opacity="0">
+        <animate attributeName="opacity" values="0;0.9;0.7;1;0.8" dur="4s" repeatCount="indefinite" begin="2.5s"/>
+        <animate attributeName="r"       values="5;5.5;5;6;5"     dur="4s" repeatCount="indefinite" begin="2.5s"/>
+      </circle>
+
+      <!-- Mane highlight -->
+      <ellipse cx="218" cy="72" rx="18" ry="12" fill="#E85820" opacity="0" filter="url(#softglow)">
+        <animate attributeName="opacity" values="0;0.08;0.04;0.1;0.06" dur="6s" repeatCount="indefinite" begin="3s"/>
+      </ellipse>
+    </svg>
+
+    <div class="hero-eyebrow">Plataforma Open Source · Python-first · Voice-to-Voice</div>
+    <h1 class="hero-title">GU<em>A</em>RÁ</h1>
+    <p class="hero-tagline">Uma arquitetura aberta para agentes de voz contínuos,<br>modulares e extensíveis por design.</p>
+
+    <div class="hero-badges">
+      <span class="badge">P95 ≤ 2.0s</span>
+      <span class="badge">Barge-in</span>
+      <span class="badge">MCP / n8n</span>
+      <span class="badge">Plugins SDK</span>
+      <span class="badge">SSE · WebSocket</span>
+      <span class="badge">Docker-first</span>
+    </div>
+  </div>
+
+  <div class="scroll-hint">
+    <span>Explorar</span>
+    <svg viewBox="0 0 18 28" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M9 2v18M3 16l6 6 6-6"/>
+    </svg>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════
+     LEVEL 1 · VISION
+══════════════════════════════════════════════ -->
+<section id="L1" class="level">
+  <div class="vision-left">
+    <div class="level-label rv">L1 · Visão Geral</div>
+    <h2 class="section-h rv d1">O que é<br>o Guará?</h2>
+    <p class="section-body rv d2">
+      Guará é uma fundação open source para arquitetura de agentes <em>voice-to-voice</em>.
+      Construído Python-first com foco em extensibilidade por interfaces de domínio — permite
+      trocar STT, TTS, LLM e ferramentas por configuração, sem reescrever o core.
+    </p>
+    <p class="section-body rv d3">
+      Projetado para rodar local em Docker <em>all-in-one</em>, com integração no-code
+      via MCP e n8n, e evolução para autonomia por ferramenta em modos controlados
+      de proatividade: <strong>Manual · Agenda · Autônomo</strong>.
+    </p>
+  </div>
+
+  <div class="vision-right">
+    <div class="kpi rv d1">
+      <div class="kpi-val">≤2s</div>
+      <div class="kpi-info">
+        <div class="kpi-title">Latência Alvo P95</div>
+        <div class="kpi-text">End-to-end voice round-trip com streaming SSE e barge-in para interrupção imediata da fala do agente.</div>
+      </div>
+    </div>
+    <div class="kpi rv d2">
+      <div class="kpi-val">7</div>
+      <div class="kpi-info">
+        <div class="kpi-title">Interfaces de Domínio</div>
+        <div class="kpi-text">ISTTProvider · ITTSProvider · ILLMProvider · IToolProvider · IMemoryProvider · IGuardrail · ITransport</div>
+      </div>
+    </div>
+    <div class="kpi rv d3">
+      <div class="kpi-val">∞</div>
+      <div class="kpi-info">
+        <div class="kpi-title">Ferramentas Plugáveis</div>
+        <div class="kpi-text">Contrato universal de tools com schema inferido. MCP/n8n como caminho principal no-code para contribuidores externos.</div>
+      </div>
+    </div>
+    <div class="kpi rv d4">
+      <div class="kpi-val">6</div>
+      <div class="kpi-info">
+        <div class="kpi-title">Estados de Sessão</div>
+        <div class="kpi-text">Listening · Thinking · Speaking · Interrupted · ToolRunning · Error — ciclo de vida completo rastreado por eventos tipados.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════
+     LEVEL 2 · A JORNADA DA VOZ
+══════════════════════════════════════════════ -->
+<section id="L2" class="level">
+  <div class="journey-wrap">
+    <div class="level-label rv">L2 · Arquitetura</div>
+    <h2 class="section-h rv d1">A Jornada<br>da Voz</h2>
+    <p class="rv d2" style="font-size:1rem;color:var(--muted);font-style:italic;margin-bottom:1.8rem;max-width:54ch;line-height:1.65;">
+      Do microfone à resposta em voz — siga o caminho de cada conversa pelo sistema em tempo real.
+    </p>
+
+    <!-- ── PIPELINE SVG ── -->
+    <svg id="journey-svg" class="journey-svg rv d3"
+         viewBox="0 0 960 275"
+         xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="jglow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="jglow-sm" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="6" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <!-- Hidden paths for bullet animation -->
+        <path id="jp-mic-llm" d="M 178,130 C 268,130 312,118 375,118"/>
+        <path id="jp-llm-t1"  d="M 468,162 C 450,188 428,210 395,214"/>
+        <path id="jp-llm-t2"  d="M 476,164 L 476,228"/>
+        <path id="jp-llm-t3"  d="M 484,162 C 502,188 524,210 558,214"/>
+        <path id="jp-t1-llm"  d="M 395,214 C 428,210 450,188 466,162"/>
+        <path id="jp-t2-llm"  d="M 478,228 L 478,164"/>
+        <path id="jp-t3-llm"  d="M 558,214 C 524,210 502,188 486,162"/>
+        <path id="jp-llm-spk" d="M 578,118 C 668,118 720,130 786,130"/>
+      </defs>
+
+      <!-- ─ Visible connection lines ─ -->
+      <!-- STT → LLM -->
+      <path d="M 178,130 C 268,130 312,118 375,118"
+            stroke="rgba(232,88,32,0.22)" stroke-width="1.5" fill="none"/>
+      <!-- LLM → Tools (dashed, fan-out) -->
+      <path d="M 468,162 C 450,188 428,210 395,214"
+            stroke="rgba(200,133,42,0.2)" stroke-width="1" fill="none" stroke-dasharray="4 4"/>
+      <path d="M 476,164 L 476,228"
+            stroke="rgba(200,133,42,0.2)" stroke-width="1" fill="none" stroke-dasharray="4 4"/>
+      <path d="M 484,162 C 502,188 524,210 558,214"
+            stroke="rgba(200,133,42,0.2)" stroke-width="1" fill="none" stroke-dasharray="4 4"/>
+      <!-- LLM → SPK -->
+      <path d="M 578,118 C 668,118 720,130 786,130"
+            stroke="rgba(232,88,32,0.22)" stroke-width="1.5" fill="none"/>
+
+      <!-- "PARALELO" bracket under tools -->
+      <line x1="348" y1="208" x2="608" y2="208" stroke="rgba(200,133,42,0.15)" stroke-width="0.8"/>
+      <text x="478" y="203" font-family="Space Mono,monospace" font-size="8"
+            letter-spacing="2" fill="rgba(200,133,42,0.4)" text-anchor="middle">EXECUÇÃO PARALELA</text>
+
+      <!-- ─ NODE: ESCUTA (STT) ─ -->
+      <rect id="jn-mic" class="j-node-rect"
+            x="28" y="94" width="150" height="72" rx="3"
+            fill="rgba(232,88,32,0.07)" stroke="rgba(232,88,32,0.38)" stroke-width="1.2"/>
+      <!-- Mic icon -->
+      <rect x="58" y="108" width="14" height="22" rx="7"
+            fill="none" stroke="rgba(232,88,32,0.7)" stroke-width="1.3"/>
+      <path d="M 52,126 Q 65,138 78,126" fill="none" stroke="rgba(232,88,32,0.6)" stroke-width="1.2"/>
+      <line x1="65" y1="138" x2="65" y2="145" stroke="rgba(232,88,32,0.5)" stroke-width="1.2"/>
+      <!-- Label -->
+      <text x="98" y="118" font-family="Space Mono,monospace" font-size="8.5"
+            letter-spacing="1.5" fill="rgba(232,88,32,0.9)">ESCUTA</text>
+      <text x="98" y="133" font-family="Crimson Pro,serif" font-size="11"
+            font-style="italic" fill="rgba(244,238,229,0.45)">voz → texto</text>
+      <text x="98" y="148" font-family="Crimson Pro,serif" font-size="10"
+            font-style="italic" fill="rgba(244,238,229,0.25)">transcreve</text>
+
+      <!-- ─ NODE: RACIOCINA (LLM + Orchestrator) ─ -->
+      <rect id="jn-llm" class="j-node-rect"
+            x="375" y="80" width="206" height="82" rx="3"
+            fill="rgba(232,88,32,0.09)" stroke="rgba(232,88,32,0.5)" stroke-width="1.5"/>
+      <!-- Glow pulse on LLM -->
+      <rect x="375" y="80" width="206" height="82" rx="3" fill="rgba(232,88,32,0)">
+        <animate attributeName="fill"
+                 values="rgba(232,88,32,0);rgba(232,88,32,0.06);rgba(232,88,32,0)"
+                 dur="4s" repeatCount="indefinite" begin="0.5s"/>
+      </rect>
+      <!-- Brain/gear icon (simplified) -->
+      <circle cx="407" cy="118" r="13" fill="none" stroke="rgba(232,88,32,0.65)" stroke-width="1.3"/>
+      <circle cx="407" cy="118" r="5"  fill="rgba(232,88,32,0.2)" stroke="rgba(232,88,32,0.5)" stroke-width="1"/>
+      <line x1="407" y1="104" x2="407" y2="109" stroke="rgba(232,88,32,0.5)" stroke-width="1.3"/>
+      <line x1="407" y1="127" x2="407" y2="132" stroke="rgba(232,88,32,0.5)" stroke-width="1.3"/>
+      <line x1="393" y1="118" x2="398" y2="118" stroke="rgba(232,88,32,0.5)" stroke-width="1.3"/>
+      <line x1="416" y1="118" x2="421" y2="118" stroke="rgba(232,88,32,0.5)" stroke-width="1.3"/>
+      <line x1="397" y1="108" x2="401" y2="112" stroke="rgba(232,88,32,0.4)" stroke-width="1"/>
+      <line x1="413" y1="124" x2="417" y2="128" stroke="rgba(232,88,32,0.4)" stroke-width="1"/>
+      <!-- Labels -->
+      <text x="428" y="106" font-family="Space Mono,monospace" font-size="8.5"
+            letter-spacing="1.5" fill="rgba(232,88,32,0.9)">RACIOCINA</text>
+      <text x="428" y="120" font-family="Crimson Pro,serif" font-size="11"
+            font-style="italic" fill="rgba(244,238,229,0.55)">compreende • decide</text>
+      <text x="428" y="134" font-family="Crimson Pro,serif" font-size="10"
+            font-style="italic" fill="rgba(244,238,229,0.28)">aciona ferramentas</text>
+      <text x="428" y="148" font-family="Crimson Pro,serif" font-size="10"
+            font-style="italic" fill="rgba(244,238,229,0.22)">mantém contexto</text>
+
+      <!-- ─ TOOL NODES ─ -->
+      <rect id="jn-t1" class="j-node-rect"
+            x="348" y="214" width="95" height="38" rx="2"
+            fill="rgba(200,133,42,0.06)" stroke="rgba(200,133,42,0.3)" stroke-width="1"/>
+      <text x="395" y="231" font-family="Space Mono,monospace" font-size="7.5"
+            letter-spacing="1" fill="rgba(200,133,42,0.75)" text-anchor="middle">FERRAMENTA</text>
+      <text x="395" y="244" font-family="Crimson Pro,serif" font-size="9.5"
+            fill="rgba(244,238,229,0.25)" text-anchor="middle" font-style="italic">API · busca</text>
+
+      <rect id="jn-t2" class="j-node-rect"
+            x="429" y="228" width="95" height="38" rx="2"
+            fill="rgba(200,133,42,0.06)" stroke="rgba(200,133,42,0.3)" stroke-width="1"/>
+      <text x="476" y="245" font-family="Space Mono,monospace" font-size="7.5"
+            letter-spacing="1" fill="rgba(200,133,42,0.75)" text-anchor="middle">FERRAMENTA</text>
+      <text x="476" y="258" font-family="Crimson Pro,serif" font-size="9.5"
+            fill="rgba(244,238,229,0.25)" text-anchor="middle" font-style="italic">calendário</text>
+
+      <rect id="jn-t3" class="j-node-rect"
+            x="513" y="214" width="95" height="38" rx="2"
+            fill="rgba(200,133,42,0.06)" stroke="rgba(200,133,42,0.3)" stroke-width="1"/>
+      <text x="560" y="231" font-family="Space Mono,monospace" font-size="7.5"
+            letter-spacing="1" fill="rgba(200,133,42,0.75)" text-anchor="middle">FERRAMENTA</text>
+      <text x="560" y="244" font-family="Crimson Pro,serif" font-size="9.5"
+            fill="rgba(244,238,229,0.25)" text-anchor="middle" font-style="italic">dados · ação</text>
+
+      <!-- ─ NODE: RESPONDE (TTS) ─ -->
+      <rect id="jn-spk" class="j-node-rect"
+            x="786" y="94" width="150" height="72" rx="3"
+            fill="rgba(232,88,32,0.07)" stroke="rgba(232,88,32,0.38)" stroke-width="1.2"/>
+      <!-- Speaker icon -->
+      <path d="M 808,112 L 808,148 L 818,140 L 830,152 L 835,148 L 823,136 L 834,128 Z"
+            fill="none" stroke="rgba(232,88,32,0.65)" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M 837,116 Q 850,130 837,145" fill="none" stroke="rgba(232,88,32,0.45)" stroke-width="1.2"/>
+      <path d="M 843,111 Q 860,130 843,150" fill="none" stroke="rgba(232,88,32,0.25)" stroke-width="1"/>
+      <!-- Label -->
+      <text x="868" y="118" font-family="Space Mono,monospace" font-size="8.5"
+            letter-spacing="1.5" fill="rgba(232,88,32,0.9)">RESPONDE</text>
+      <text x="868" y="133" font-family="Crimson Pro,serif" font-size="11"
+            font-style="italic" fill="rgba(244,238,229,0.45)">texto → voz</text>
+      <text x="868" y="148" font-family="Crimson Pro,serif" font-size="10"
+            font-style="italic" fill="rgba(244,238,229,0.25)">sintetiza</text>
+
+      <!-- ─ BARGE-IN INDICATOR (shown by JS during interrupt) ─ -->
+      <g id="j-barge" style="opacity:0;transition:opacity 0.3s ease;">
+        <line x1="700" y1="72" x2="735" y2="100" stroke="var(--orange)" stroke-width="1" stroke-dasharray="3 3"/>
+        <polygon points="700,48 706,62 694,62" fill="var(--orange)" opacity="0.85"/>
+        <text x="700" y="44" font-family="Space Mono,monospace" font-size="8"
+              letter-spacing="1.5" fill="var(--orange)" text-anchor="middle">BARGE-IN</text>
+        <text x="700" y="84" font-family="Crimson Pro,serif" font-size="10.5"
+              font-style="italic" fill="rgba(244,238,229,0.5)" text-anchor="middle">interrompe aqui</text>
+      </g>
+
+      <!-- Bullet container -->
+      <g id="j-bullets"></g>
+    </svg>
+
+    <div class="j-note rv d4">
+      <div class="j-note-dot"></div>
+      <span>Observe os pacotes fluindo em tempo real — ferramentas rodam em paralelo, e o <strong style="color:var(--orange)">barge-in</strong> interrompe a qualquer momento, mesmo com o agente falando.</span>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════
+     LEVEL 2b · TRADICIONAL vs GUARÁ
+══════════════════════════════════════════════ -->
+<section id="L2b" class="level">
+
+  <!-- LEFT: Traditional -->
+  <div class="cmp-panel trad">
+    <div class="cmp-tag rv">Sistema Tradicional</div>
+    <h2 class="cmp-h rv d1">Engessado<br>por design.</h2>
+
+    <!-- SVG: rigid linear pipeline -->
+    <svg class="cmp-svg rv d2" viewBox="0 0 380 130" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="tglow"><feGaussianBlur stdDeviation="2" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <!-- Nodes -->
+      <rect x="2"   y="42" width="60" height="46" rx="2" fill="rgba(244,238,229,0.04)" stroke="rgba(244,238,229,0.12)" stroke-width="1"/>
+      <rect x="80"  y="42" width="60" height="46" rx="2" fill="rgba(244,238,229,0.04)" stroke="rgba(244,238,229,0.12)" stroke-width="1"/>
+      <rect x="160" y="42" width="60" height="46" rx="2" fill="rgba(244,238,229,0.04)" stroke="rgba(244,238,229,0.12)" stroke-width="1"/>
+      <rect x="240" y="42" width="60" height="46" rx="2" fill="rgba(244,238,229,0.04)" stroke="rgba(244,238,229,0.12)" stroke-width="1"/>
+      <rect x="318" y="42" width="60" height="46" rx="2" fill="rgba(244,238,229,0.04)" stroke="rgba(244,238,229,0.12)" stroke-width="1"/>
+      <!-- Arrows -->
+      <line x1="62" y1="65" x2="80" y2="65" stroke="rgba(244,238,229,0.12)" stroke-width="1.2"/>
+      <line x1="140" y1="65" x2="160" y2="65" stroke="rgba(244,238,229,0.12)" stroke-width="1.2"/>
+      <line x1="220" y1="65" x2="240" y2="65" stroke="rgba(244,238,229,0.12)" stroke-width="1.2"/>
+      <line x1="300" y1="65" x2="318" y2="65" stroke="rgba(244,238,229,0.12)" stroke-width="1.2"/>
+      <!-- Lock icons -->
+      <rect x="96"  y="58" width="10" height="8" rx="1" fill="none" stroke="rgba(220,80,60,0.5)" stroke-width="1"/>
+      <path d="M 98,58 Q 101,53 104,58" fill="none" stroke="rgba(220,80,60,0.5)" stroke-width="1"/>
+      <rect x="176" y="58" width="10" height="8" rx="1" fill="none" stroke="rgba(220,80,60,0.5)" stroke-width="1"/>
+      <path d="M 178,58 Q 181,53 184,58" fill="none" stroke="rgba(220,80,60,0.5)" stroke-width="1"/>
+      <rect x="256" y="58" width="10" height="8" rx="1" fill="none" stroke="rgba(220,80,60,0.5)" stroke-width="1"/>
+      <path d="M 258,58 Q 261,53 264,58" fill="none" stroke="rgba(220,80,60,0.5)" stroke-width="1"/>
+      <!-- Labels -->
+      <text x="32"  y="62" font-family="Space Mono,monospace" font-size="7" fill="rgba(244,238,229,0.3)" text-anchor="middle">MIC</text>
+      <text x="110" y="62" font-family="Space Mono,monospace" font-size="7" fill="rgba(244,238,229,0.2)" text-anchor="middle">STT</text>
+      <text x="110" y="74" font-family="Space Mono,monospace" font-size="5.5" fill="rgba(220,80,60,0.4)" text-anchor="middle">fixo</text>
+      <text x="190" y="62" font-family="Space Mono,monospace" font-size="7" fill="rgba(244,238,229,0.2)" text-anchor="middle">LLM</text>
+      <text x="190" y="74" font-family="Space Mono,monospace" font-size="5.5" fill="rgba(220,80,60,0.4)" text-anchor="middle">fixo</text>
+      <text x="270" y="62" font-family="Space Mono,monospace" font-size="7" fill="rgba(244,238,229,0.2)" text-anchor="middle">TTS</text>
+      <text x="270" y="74" font-family="Space Mono,monospace" font-size="5.5" fill="rgba(220,80,60,0.4)" text-anchor="middle">fixo</text>
+      <text x="348" y="62" font-family="Space Mono,monospace" font-size="7" fill="rgba(244,238,229,0.3)" text-anchor="middle">FALA</text>
+      <!-- "No interrupt" label -->
+      <text x="190" y="118" font-family="Crimson Pro,serif" font-size="10" font-style="italic"
+            fill="rgba(220,80,60,0.4)" text-anchor="middle">sem interrupção · provider único · sequencial</text>
+    </svg>
+
+    <div class="cmp-bars rv d3">
+      <div class="cmp-bars-label">Ferramentas rodam sequencialmente</div>
+      <div class="bar-row">
+        <div class="bar-name">Tarefa 1</div>
+        <div class="bar-track"><div class="bar-fill s1"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-name">Tarefa 2</div>
+        <div class="bar-track"><div class="bar-fill s2"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-name">Tarefa 3</div>
+        <div class="bar-track"><div class="bar-fill s3"></div></div>
+      </div>
+    </div>
+
+    <div class="cmp-list rv d4" style="margin-top:1.4rem;">
+      <div class="cmp-item"><span class="cmp-bullet">✕</span><span>Provider preso em um fornecedor — trocar exige reescrever o sistema inteiro</span></div>
+      <div class="cmp-item"><span class="cmp-bullet">✕</span><span>Usuário não pode interromper o agente enquanto ele fala</span></div>
+      <div class="cmp-item"><span class="cmp-bullet">✕</span><span>Ferramentas executam uma de cada vez, bloqueando a resposta</span></div>
+      <div class="cmp-item"><span class="cmp-bullet">✕</span><span>Resposta só chega depois que tudo foi processado</span></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Guará -->
+  <div class="cmp-panel guar">
+    <div class="cmp-tag rv">Guará</div>
+    <h2 class="cmp-h rv d1">Modular<br>por natureza.</h2>
+
+    <!-- SVG: Guará modular pipeline -->
+    <svg class="cmp-svg rv d2" viewBox="0 0 380 130" xmlns="http://www.w3.org/2000/svg">
+      <!-- Nodes with swap indicator -->
+      <rect x="2"   y="42" width="60" height="46" rx="2" fill="rgba(232,88,32,0.07)" stroke="rgba(232,88,32,0.3)" stroke-width="1.2"/>
+      <rect x="80"  y="42" width="60" height="46" rx="2" fill="rgba(232,88,32,0.07)" stroke="rgba(232,88,32,0.38)" stroke-width="1.2"/>
+      <rect x="160" y="42" width="60" height="46" rx="2" fill="rgba(232,88,32,0.1)"  stroke="rgba(232,88,32,0.5)"  stroke-width="1.5"/>
+      <rect x="240" y="42" width="60" height="46" rx="2" fill="rgba(232,88,32,0.07)" stroke="rgba(232,88,32,0.38)" stroke-width="1.2"/>
+      <rect x="318" y="42" width="60" height="46" rx="2" fill="rgba(232,88,32,0.07)" stroke="rgba(232,88,32,0.3)" stroke-width="1.2"/>
+      <!-- Connecting lines -->
+      <line x1="62" y1="65" x2="80" y2="65" stroke="rgba(232,88,32,0.35)" stroke-width="1.5"/>
+      <line x1="140" y1="65" x2="160" y2="65" stroke="rgba(232,88,32,0.35)" stroke-width="1.5"/>
+      <line x1="220" y1="65" x2="240" y2="65" stroke="rgba(232,88,32,0.35)" stroke-width="1.5"/>
+      <line x1="300" y1="65" x2="318" y2="65" stroke="rgba(232,88,32,0.35)" stroke-width="1.5"/>
+      <!-- Swap icons (⇄) on STT, LLM, TTS -->
+      <text x="110" y="74" font-family="Space Mono,monospace" font-size="11" fill="rgba(232,88,32,0.7)" text-anchor="middle">⇄</text>
+      <text x="190" y="74" font-family="Space Mono,monospace" font-size="11" fill="rgba(232,88,32,0.85)" text-anchor="middle">⇄</text>
+      <text x="270" y="74" font-family="Space Mono,monospace" font-size="11" fill="rgba(232,88,32,0.7)" text-anchor="middle">⇄</text>
+      <!-- Labels -->
+      <text x="32"  y="62" font-family="Space Mono,monospace" font-size="7" fill="rgba(244,238,229,0.5)" text-anchor="middle">MIC</text>
+      <text x="110" y="59" font-family="Space Mono,monospace" font-size="7" fill="rgba(232,88,32,0.8)" text-anchor="middle">STT</text>
+      <text x="190" y="59" font-family="Space Mono,monospace" font-size="7" fill="rgba(232,88,32,0.95)" text-anchor="middle">LLM</text>
+      <text x="270" y="59" font-family="Space Mono,monospace" font-size="7" fill="rgba(232,88,32,0.8)" text-anchor="middle">TTS</text>
+      <text x="348" y="62" font-family="Space Mono,monospace" font-size="7" fill="rgba(244,238,229,0.5)" text-anchor="middle">FALA</text>
+      <!-- Barge-in arrow (from top, interrupting) -->
+      <line x1="270" y1="10" x2="270" y2="42" stroke="rgba(232,88,32,0.5)" stroke-width="1" stroke-dasharray="3 2"/>
+      <polygon points="270,42 265,30 275,30" fill="rgba(232,88,32,0.5)"/>
+      <text x="270" y="8" font-family="Space Mono,monospace" font-size="6" fill="rgba(232,88,32,0.6)" text-anchor="middle" letter-spacing="1">BARGE-IN</text>
+      <!-- "modular" label -->
+      <text x="190" y="118" font-family="Crimson Pro,serif" font-size="10" font-style="italic"
+            fill="rgba(232,88,32,0.5)" text-anchor="middle">interruptível · qualquer provider · paralelo</text>
+    </svg>
+
+    <div class="cmp-bars rv d3">
+      <div class="cmp-bars-label">Ferramentas rodam em paralelo</div>
+      <div class="bar-row">
+        <div class="bar-name">Tarefa 1</div>
+        <div class="bar-track"><div class="bar-fill p"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-name">Tarefa 2</div>
+        <div class="bar-track"><div class="bar-fill p" style="animation-delay:0s"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-name">Tarefa 3</div>
+        <div class="bar-track"><div class="bar-fill p" style="animation-delay:0s"></div></div>
+      </div>
+    </div>
+
+    <div class="cmp-list rv d4" style="margin-top:1.4rem;">
+      <div class="cmp-item"><span class="cmp-bullet">→</span><span>Troque STT, LLM ou TTS por configuração — o core não muda</span></div>
+      <div class="cmp-item"><span class="cmp-bullet">→</span><span>Usuário fala quando quiser — o agente para imediatamente</span></div>
+      <div class="cmp-item"><span class="cmp-bullet">→</span><span>Ferramentas rodam em paralelo com limite e timeout por política</span></div>
+      <div class="cmp-item"><span class="cmp-bullet">→</span><span>Resposta começa a fluir antes de terminar de processar</span></div>
+    </div>
+  </div>
+
+</section>
+
+
+<!-- ══════════════════════════════════════════════
+     LEVEL 2c · OS 4 SUPERPODERES
+══════════════════════════════════════════════ -->
+<section id="L2c" class="level">
+  <div class="powers-wrap">
+    <div class="level-label rv">O que nos diferencia</div>
+    <h2 class="section-h rv d1">Os 4<br>Superpoderes</h2>
+
+    <div class="powers-grid">
+
+      <!-- ── SUPERPODER 1: BARGE-IN ── -->
+      <div class="pw rv d1">
+        <div class="pw-num">1</div>
+        <div class="pw-title">Barge-in</div>
+        <div class="pw-sub">O usuário fala quando quiser — o agente para de imediato, sem lag, sem cortar palavras.</div>
+        <div class="pw-vis">
+          <svg class="wv-svg" id="barge-svg" viewBox="0 0 280 88" xmlns="http://www.w3.org/2000/svg">
+            <!-- Agent waveform (orange) -->
+            <path id="wv-agent" class="wv-agent"
+                  d="M0,44 C8,22 16,66 24,44 C32,22 40,66 48,44 C56,22 64,66 72,44 C80,22 88,66 96,44 C104,22 112,66 120,44 C128,22 136,66 144,44 C152,22 160,66 168,44 C176,22 184,66 192,44 C200,22 208,66 216,44 C224,22 232,66 240,44 C248,22 256,66 264,44 C272,22 280,44 280,44"/>
+            <!-- Agent flat (after barge-in) -->
+            <path id="wv-flat" class="wv-flat" d="M 160,44 L 280,44" opacity="0"/>
+            <!-- User waveform (blue, appears mid-way) -->
+            <path id="wv-user" class="wv-user"
+                  d="M155,44 C160,30 168,58 175,44 C182,30 190,58 197,44 C204,30 212,58 219,44 C226,30 234,58 241,44 C248,30 256,58 263,44 C270,30 278,44 280,44"/>
+            <!-- Barge-in vertical marker -->
+            <line id="wv-mark" x1="155" y1="10" x2="155" y2="78"
+                  stroke="rgba(232,88,32,0.0)" stroke-width="1" stroke-dasharray="3 3"/>
+            <!-- Labels -->
+            <text x="4"   y="14" font-family="Space Mono,monospace" font-size="7" fill="rgba(232,88,32,0.5)">AGENTE</text>
+            <text id="wv-user-label" x="158" y="14" font-family="Space Mono,monospace" font-size="7"
+                  fill="rgba(107,165,216,0)" letter-spacing="0.5">USUÁRIO</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- ── SUPERPODER 2: FERRAMENTAS PARALELAS ── -->
+      <div class="pw rv d2">
+        <div class="pw-num">2</div>
+        <div class="pw-title">Ferramentas Paralelas</div>
+        <div class="pw-sub">Múltiplas ferramentas rodam ao mesmo tempo — com limite, timeout e cancelamento por política.</div>
+        <div class="pw-vis">
+          <div class="pb-vis" id="pb-vis">
+            <div class="pb-col trad">
+              <div class="pb-col-label">Tradicional</div>
+              <div class="pb-row">
+                <div class="pb-name">Ferr. 1</div>
+                <div class="pb-track"><div class="pb-fill" id="pb-t1"></div></div>
+              </div>
+              <div class="pb-row">
+                <div class="pb-name">Ferr. 2</div>
+                <div class="pb-track"><div class="pb-fill" id="pb-t2"></div></div>
+              </div>
+              <div class="pb-row">
+                <div class="pb-name">Ferr. 3</div>
+                <div class="pb-track"><div class="pb-fill" id="pb-t3"></div></div>
+              </div>
+            </div>
+            <div class="pb-col guar">
+              <div class="pb-col-label">Guará</div>
+              <div class="pb-row">
+                <div class="pb-name">Ferr. 1</div>
+                <div class="pb-track"><div class="pb-fill" id="pb-g1"></div></div>
+              </div>
+              <div class="pb-row">
+                <div class="pb-name">Ferr. 2</div>
+                <div class="pb-track"><div class="pb-fill" id="pb-g2"></div></div>
+              </div>
+              <div class="pb-row">
+                <div class="pb-name">Ferr. 3</div>
+                <div class="pb-track"><div class="pb-fill" id="pb-g3"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SUPERPODER 3: PROVIDERS PLUGÁVEIS ── -->
+      <div class="pw rv d3">
+        <div class="pw-num">3</div>
+        <div class="pw-title">Providers Plugáveis</div>
+        <div class="pw-sub">Troque o motor de fala, o modelo de IA ou a síntese de voz sem tocar em uma linha do core.</div>
+        <div class="pw-vis">
+          <div class="slot-vis">
+            <div class="prov-slot">
+              <span class="prov-type">VOZ→TEXTO</span>
+              <span class="prov-val" id="pv-stt">Whisper</span>
+              <div class="prov-dot"></div>
+            </div>
+            <div class="prov-slot">
+              <span class="prov-type">IA</span>
+              <span class="prov-val" id="pv-llm">GPT-4o</span>
+              <div class="prov-dot"></div>
+            </div>
+            <div class="prov-slot">
+              <span class="prov-type">TEXTO→VOZ</span>
+              <span class="prov-val" id="pv-tts">ElevenLabs</span>
+              <div class="prov-dot"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SUPERPODER 4: STREAMING ── -->
+      <div class="pw rv d4">
+        <div class="pw-num">4</div>
+        <div class="pw-title">Streaming em Tempo Real</div>
+        <div class="pw-sub">A resposta começa a fluir antes de terminar de ser gerada — voz sai enquanto o modelo ainda pensa.</div>
+        <div class="pw-vis">
+          <div class="stream-vis" id="stream-vis">
+            <span class="sch">Claro,</span>
+            <span class="sch">vou</span>
+            <span class="sch">verificar</span>
+            <span class="sch">o</span>
+            <span class="sch">calendário</span>
+            <span class="sch">pra</span>
+            <span class="sch">você.</span>
+            <span class="sch">Você</span>
+            <span class="sch">tem</span>
+            <span class="sch">reunião</span>
+            <span class="sch">amanhã</span>
+            <span class="sch">às</span>
+            <span class="sch">10h.</span>
+            <span class="sch">Quer</span>
+            <span class="sch">que</span>
+            <span class="sch">eu</span>
+            <span class="sch">confirme?</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════
+     LEVEL 2d · OS NÍVEIS DO SOFTWARE
+══════════════════════════════════════════════ -->
+<section id="L2d" class="level">
+<style>
+/* ─── L2d: Níveis do Software ─── */
+#L2d {
+  background: var(--ink);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: clamp(1.5rem,3vh,3.5rem) clamp(1.5rem,3vw,5rem);
+  gap: 1.2rem;
+}
+.lsw-head { text-align: center; max-width: 560px; }
+.lsw-sub {
+  font-family: 'Crimson Pro', serif;
+  font-size: 1.05rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+.lsw-body {
+  width: 100%;
+  max-width: 1020px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+}
+.lb {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 0.8rem 1.3rem;
+  border-radius: 4px;
+  border-left: 3px solid var(--lb-color, var(--orange));
+  background: var(--lb-bg, rgba(232,88,32,0.05));
+  cursor: default;
+  transition: background 0.3s ease, transform 0.25s ease;
+  position: relative;
+  flex: 1;
+  min-height: 72px;
+  opacity: 0;
+  transform: translateX(-22px);
+}
+.lb.on {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.5s ease, transform 0.45s cubic-bezier(0.34,1.56,0.64,1),
+              background 0.3s ease;
+}
+.lb:hover { background: var(--lb-bg-h, rgba(232,88,32,0.1)); }
+.lb-n {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--lb-color);
+  opacity: 0.7;
+  width: 1.4rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+.lb-ico { width: 54px; height: 46px; flex-shrink: 0; }
+.lb-txt { flex: 1; }
+.lb-nm {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--cream);
+  margin-bottom: 0.1rem;
+  letter-spacing: 0.03em;
+}
+.lb-ds {
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+.lb-vis { width: 168px; height: 56px; flex-shrink: 0; opacity: 0.9; }
+.lsw-foot {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.16em;
+  color: var(--dim);
+  text-transform: uppercase;
+  text-align: center;
+}
+@media (max-width: 700px) {
+  .lb-vis { display: none; }
+  .lsw-body { gap: 3px; }
+  .lb { padding: 0.65rem 0.9rem; gap: 0.8rem; }
+}
+</style>
+
+<div class="lsw-head">
+  <div class="level-label rv">Arquitetura</div>
+  <h2 class="section-h rv d1">Os 5 Níveis do Guará</h2>
+  <p class="lsw-sub rv d2">Uma plataforma construída em camadas independentes — troque qualquer peça sem tocar nas demais.</p>
+</div>
+
+<div class="lsw-body" id="lsw-body">
+
+  <!-- ── Nível 5: Transporte ── -->
+  <div class="lb" style="--lb-color:#E85820;--lb-bg:rgba(232,88,32,0.05);--lb-bg-h:rgba(232,88,32,0.11)">
+    <div class="lb-n">5</div>
+    <svg class="lb-ico" viewBox="0 0 54 46" fill="none">
+      <rect x="24" y="32" width="6" height="12" rx="1" fill="#E85820" opacity="0.85"/>
+      <rect x="18" y="38" width="18" height="4" rx="1" fill="#E85820" opacity="0.45"/>
+      <path d="M20,28 Q27,20 34,28" fill="none" stroke="#E85820" stroke-width="1.5" stroke-linecap="round">
+        <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
+      </path>
+      <path d="M14,22 Q27,9 40,22" fill="none" stroke="#E85820" stroke-width="1.2" stroke-linecap="round">
+        <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" begin="0.4s" repeatCount="indefinite"/>
+      </path>
+      <path d="M8,16 Q27,0 46,16" fill="none" stroke="#E85820" stroke-width="0.9" stroke-linecap="round">
+        <animate attributeName="opacity" values="0.1;0.5;0.1" dur="2s" begin="0.8s" repeatCount="indefinite"/>
+      </path>
+    </svg>
+    <div class="lb-txt">
+      <div class="lb-nm">Transporte</div>
+      <div class="lb-ds">Interface com o mundo exterior. Voz, texto e eventos chegam e saem via HTTP, WebSocket e SSE.</div>
+    </div>
+    <svg class="lb-vis" viewBox="0 0 168 56" fill="none">
+      <rect x="2"   y="14" width="44" height="28" rx="4" fill="rgba(232,88,32,0.12)" stroke="#E85820" stroke-width="1.2"/>
+      <text x="24"  y="31" text-anchor="middle" fill="#E85820" font-family="Space Mono,monospace" font-size="8" font-weight="700">HTTP</text>
+      <rect x="62"  y="14" width="44" height="28" rx="4" fill="rgba(232,88,32,0.09)" stroke="#E85820" stroke-width="1.2" opacity="0.85"/>
+      <text x="84"  y="31" text-anchor="middle" fill="#E85820" font-family="Space Mono,monospace" font-size="8" font-weight="700">SSE</text>
+      <rect x="122" y="14" width="44" height="28" rx="4" fill="rgba(232,88,32,0.07)" stroke="#E85820" stroke-width="1.2" opacity="0.75"/>
+      <text x="144" y="31" text-anchor="middle" fill="#E85820" font-family="Space Mono,monospace" font-size="8" font-weight="700">WS</text>
+      <line x1="46"  y1="28" x2="62"  y2="28" stroke="#E85820" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.5"/>
+      <line x1="106" y1="28" x2="122" y2="28" stroke="#E85820" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.5"/>
+    </svg>
+  </div>
+
+  <!-- ── Nível 4: Orquestrador ── -->
+  <div class="lb" style="--lb-color:#C8852A;--lb-bg:rgba(200,133,42,0.05);--lb-bg-h:rgba(200,133,42,0.11)">
+    <div class="lb-n">4</div>
+    <svg class="lb-ico" viewBox="0 0 54 46" fill="none">
+      <circle cx="27" cy="23" r="16" stroke="#C8852A" stroke-width="0.8" opacity="0.2" stroke-dasharray="4,3"/>
+      <circle cx="27" cy="8"  r="4.5" fill="rgba(200,133,42,0.18)" stroke="#C8852A" stroke-width="1.1"/>
+      <circle cx="41" cy="23" r="4.5" fill="rgba(200,133,42,0.12)" stroke="#C8852A" stroke-width="1"   opacity="0.85"/>
+      <circle cx="27" cy="38" r="4.5" fill="rgba(200,133,42,0.1)"  stroke="#C8852A" stroke-width="1"   opacity="0.7"/>
+      <circle cx="13" cy="23" r="4.5" fill="rgba(200,133,42,0.1)"  stroke="#C8852A" stroke-width="1"   opacity="0.6"/>
+      <circle r="2.8" fill="#C8852A" opacity="0.9">
+        <animateMotion dur="3.5s" repeatCount="indefinite" rotate="auto">
+          <mpath href="#l4ring"/>
+        </animateMotion>
+      </circle>
+      <path id="l4ring" d="M27,7 A16,16 0 1,1 26.999,7" fill="none" stroke="none"/>
+    </svg>
+    <div class="lb-txt">
+      <div class="lb-nm">Orquestrador</div>
+      <div class="lb-ds">O maestro da conversa. Gerencia turnos, coordena ferramentas e controla os estados da sessão.</div>
+    </div>
+    <svg class="lb-vis" viewBox="0 0 168 56" fill="none">
+      <rect x="0"   y="4"  width="38" height="20" rx="3" fill="rgba(200,133,42,0.12)" stroke="#C8852A" stroke-width="1"/>
+      <text x="19"  y="17" text-anchor="middle" fill="#C8852A" font-family="Space Mono,monospace" font-size="6.5" font-weight="700">Ouvindo</text>
+      <rect x="65"  y="4"  width="38" height="20" rx="3" fill="rgba(200,133,42,0.1)"  stroke="#C8852A" stroke-width="1" opacity="0.9"/>
+      <text x="84"  y="17" text-anchor="middle" fill="#C8852A" font-family="Space Mono,monospace" font-size="6.5" font-weight="700">Pensando</text>
+      <rect x="130" y="4"  width="38" height="20" rx="3" fill="rgba(200,133,42,0.08)" stroke="#C8852A" stroke-width="1" opacity="0.8"/>
+      <text x="149" y="17" text-anchor="middle" fill="#C8852A" font-family="Space Mono,monospace" font-size="6.5" font-weight="700">Falando</text>
+      <rect x="65"  y="34" width="38" height="20" rx="3" fill="rgba(200,133,42,0.06)" stroke="#C8852A" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.7"/>
+      <text x="84"  y="47" text-anchor="middle" fill="#C8852A" font-family="Space Mono,monospace" font-size="5.5">Interrompido</text>
+      <path d="M38,13 L65,13" stroke="#C8852A" stroke-width="0.9" opacity="0.55" marker-end="url(#arr-l4a)"/>
+      <path d="M103,13 L130,13" stroke="#C8852A" stroke-width="0.9" opacity="0.55" marker-end="url(#arr-l4a)"/>
+      <path d="M84,24 L84,34" stroke="#C8852A" stroke-width="0.9" opacity="0.4" stroke-dasharray="3,2"/>
+      <defs>
+        <marker id="arr-l4a" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+          <path d="M0,0.5 L4,2.5 L0,4.5" fill="none" stroke="#C8852A" stroke-width="0.9"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  <!-- ── Nível 3: Core Engine ── -->
+  <div class="lb" style="--lb-color:#5BA3C7;--lb-bg:rgba(91,163,199,0.05);--lb-bg-h:rgba(91,163,199,0.11)">
+    <div class="lb-n">3</div>
+    <svg class="lb-ico" viewBox="0 0 54 46" fill="none">
+      <circle cx="27" cy="23" r="9" fill="rgba(91,163,199,0.2)" stroke="#5BA3C7" stroke-width="1.6"/>
+      <g>
+        <animateTransform attributeName="transform" type="rotate" from="0 27 23" to="360 27 23" dur="8s" repeatCount="indefinite"/>
+        <rect x="25" y="10" width="4" height="5" rx="1" fill="#5BA3C7" opacity="0.75"/>
+        <rect x="25" y="31" width="4" height="5" rx="1" fill="#5BA3C7" opacity="0.75"/>
+        <rect x="12" y="21" width="5" height="4" rx="1" fill="#5BA3C7" opacity="0.75"/>
+        <rect x="37" y="21" width="5" height="4" rx="1" fill="#5BA3C7" opacity="0.75"/>
+      </g>
+      <line x1="27" y1="32" x2="14" y2="43" stroke="#5BA3C7" stroke-width="1" opacity="0.35" stroke-dasharray="2,2"/>
+      <line x1="27" y1="32" x2="40" y2="43" stroke="#5BA3C7" stroke-width="1" opacity="0.35" stroke-dasharray="2,2"/>
+      <line x1="27" y1="14" x2="27" y2="4"  stroke="#5BA3C7" stroke-width="1" opacity="0.35" stroke-dasharray="2,2"/>
+    </svg>
+    <div class="lb-txt">
+      <div class="lb-nm">Core Engine</div>
+      <div class="lb-ds">O coração. Barramento de eventos tipados, memória de curto prazo e execução paralela de ferramentas.</div>
+    </div>
+    <svg class="lb-vis" viewBox="0 0 168 56" fill="none">
+      <circle cx="84" cy="34" r="14" fill="rgba(91,163,199,0.15)" stroke="#5BA3C7" stroke-width="1.5"/>
+      <text x="84" y="38" text-anchor="middle" fill="#5BA3C7" font-family="Space Mono,monospace" font-size="5.5">Core</text>
+      <line x1="72" y1="23" x2="18" y2="8"  stroke="#5BA3C7" stroke-width="0.9" stroke-dasharray="3,2" opacity="0.6"/>
+      <line x1="84" y1="20" x2="84" y2="4"  stroke="#5BA3C7" stroke-width="0.9" stroke-dasharray="3,2" opacity="0.6"/>
+      <line x1="96" y1="23" x2="150" y2="8" stroke="#5BA3C7" stroke-width="0.9" stroke-dasharray="3,2" opacity="0.6"/>
+      <rect x="0"   y="0"  width="38" height="16" rx="3" fill="rgba(91,163,199,0.1)" stroke="#5BA3C7" stroke-width="1"/>
+      <text x="19"  y="11" text-anchor="middle" fill="#5BA3C7" font-family="Space Mono,monospace" font-size="5.5">Eventos</text>
+      <rect x="65"  y="0"  width="38" height="16" rx="3" fill="rgba(91,163,199,0.1)" stroke="#5BA3C7" stroke-width="1" opacity="0.9"/>
+      <text x="84"  y="11" text-anchor="middle" fill="#5BA3C7" font-family="Space Mono,monospace" font-size="5.5">Memória</text>
+      <rect x="130" y="0"  width="38" height="16" rx="3" fill="rgba(91,163,199,0.1)" stroke="#5BA3C7" stroke-width="1" opacity="0.85"/>
+      <text x="149" y="11" text-anchor="middle" fill="#5BA3C7" font-family="Space Mono,monospace" font-size="5.5">Tools</text>
+      <circle cx="84" cy="34" r="22" stroke="#5BA3C7" stroke-width="0.6" fill="none" opacity="0">
+        <animate attributeName="r"       values="14;28;14" dur="2.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.5;0;0.5" dur="2.5s" repeatCount="indefinite"/>
+      </circle>
+    </svg>
+  </div>
+
+  <!-- ── Nível 2: Provedores ── -->
+  <div class="lb" style="--lb-color:#7BC8A4;--lb-bg:rgba(123,200,164,0.05);--lb-bg-h:rgba(123,200,164,0.11)">
+    <div class="lb-n">2</div>
+    <svg class="lb-ico" viewBox="0 0 54 46" fill="none">
+      <rect x="2"  y="15" width="14" height="16" rx="2" fill="rgba(123,200,164,0.2)" stroke="#7BC8A4" stroke-width="1.2"/>
+      <text x="9"  y="25" text-anchor="middle" fill="#7BC8A4" font-family="Space Mono,monospace" font-size="5.5">STT</text>
+      <rect x="20" y="15" width="14" height="16" rx="2" fill="rgba(123,200,164,0.15)" stroke="#7BC8A4" stroke-width="1.2" opacity="0.9"/>
+      <text x="27" y="25" text-anchor="middle" fill="#7BC8A4" font-family="Space Mono,monospace" font-size="5.5">LLM</text>
+      <rect x="38" y="15" width="14" height="16" rx="2" fill="rgba(123,200,164,0.1)"  stroke="#7BC8A4" stroke-width="1.2" opacity="0.8"/>
+      <text x="45" y="25" text-anchor="middle" fill="#7BC8A4" font-family="Space Mono,monospace" font-size="5.5">TTS</text>
+      <path d="M7,13 Q27,5 47,13" fill="none" stroke="#7BC8A4" stroke-width="1" stroke-dasharray="3,2">
+        <animate attributeName="stroke-dashoffset" from="10" to="-10" dur="1.6s" repeatCount="indefinite"/>
+      </path>
+    </svg>
+    <div class="lb-txt">
+      <div class="lb-nm">Provedores</div>
+      <div class="lb-ds">As peças intercambiáveis. STT, LLM e TTS trocam sem alterar uma linha do núcleo.</div>
+    </div>
+    <svg class="lb-vis" viewBox="0 0 168 56" fill="none">
+      <rect x="4"   y="16" width="40" height="24" rx="4" fill="rgba(123,200,164,0.14)" stroke="#7BC8A4" stroke-width="1.2"/>
+      <text x="24"  y="31" text-anchor="middle" fill="#7BC8A4" font-family="Space Mono,monospace" font-size="8" font-weight="700">STT</text>
+      <rect x="64"  y="16" width="40" height="24" rx="4" fill="rgba(123,200,164,0.11)" stroke="#7BC8A4" stroke-width="1.2"/>
+      <text x="84"  y="31" text-anchor="middle" fill="#7BC8A4" font-family="Space Mono,monospace" font-size="8" font-weight="700">LLM</text>
+      <rect x="124" y="16" width="40" height="24" rx="4" fill="rgba(123,200,164,0.08)" stroke="#7BC8A4" stroke-width="1.2"/>
+      <text x="144" y="31" text-anchor="middle" fill="#7BC8A4" font-family="Space Mono,monospace" font-size="8" font-weight="700">TTS</text>
+      <path d="M44,24 L64,24" stroke="#7BC8A4" stroke-width="1" opacity="0.6" marker-end="url(#arr-l2a)"/>
+      <path d="M64,32 L44,32" stroke="#7BC8A4" stroke-width="1" opacity="0.6" marker-end="url(#arr-l2a)"/>
+      <path d="M104,24 L124,24" stroke="#7BC8A4" stroke-width="1" opacity="0.6" marker-end="url(#arr-l2a)"/>
+      <path d="M124,32 L104,32" stroke="#7BC8A4" stroke-width="1" opacity="0.6" marker-end="url(#arr-l2a)"/>
+      <defs>
+        <marker id="arr-l2a" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+          <path d="M0,0.5 L4,2.5 L0,4.5" fill="none" stroke="#7BC8A4" stroke-width="0.9"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  <!-- ── Nível 1: Plugins & Adaptadores ── -->
+  <div class="lb" style="--lb-color:#B07FC8;--lb-bg:rgba(176,127,200,0.05);--lb-bg-h:rgba(176,127,200,0.11)">
+    <div class="lb-n">1</div>
+    <svg class="lb-ico" viewBox="0 0 54 46" fill="none">
+      <rect x="2"  y="4"  width="16" height="12" rx="2" fill="rgba(176,127,200,0.2)" stroke="#B07FC8" stroke-width="1.1"/>
+      <text x="10" y="12" text-anchor="middle" fill="#B07FC8" font-family="Space Mono,monospace" font-size="5">MCP</text>
+      <rect x="2"  y="26" width="16" height="12" rx="2" fill="rgba(176,127,200,0.15)" stroke="#B07FC8" stroke-width="1.1"/>
+      <text x="10" y="34" text-anchor="middle" fill="#B07FC8" font-family="Space Mono,monospace" font-size="5">n8n</text>
+      <rect x="36" y="15" width="16" height="12" rx="2" fill="rgba(176,127,200,0.15)" stroke="#B07FC8" stroke-width="1.1"/>
+      <text x="44" y="23" text-anchor="middle" fill="#B07FC8" font-family="Space Mono,monospace" font-size="5">SDK</text>
+      <line x1="18" y1="10" x2="36" y2="19" stroke="#B07FC8" stroke-width="1" opacity="0.5" stroke-dasharray="3,2">
+        <animate attributeName="stroke-dashoffset" from="0" to="10" dur="1.2s" repeatCount="indefinite"/>
+      </line>
+      <line x1="18" y1="32" x2="36" y2="23" stroke="#B07FC8" stroke-width="1" opacity="0.5" stroke-dasharray="3,2">
+        <animate attributeName="stroke-dashoffset" from="0" to="10" dur="1.2s" begin="0.25s" repeatCount="indefinite"/>
+      </line>
+    </svg>
+    <div class="lb-txt">
+      <div class="lb-nm">Plugins & Adaptadores</div>
+      <div class="lb-ds">A extensão sem código. Conecte ferramentas externas via MCP, n8n ou SDK Python diretamente ao núcleo.</div>
+    </div>
+    <svg class="lb-vis" viewBox="0 0 168 56" fill="none">
+      <rect x="0"  y="6"  width="34" height="16" rx="3" fill="rgba(176,127,200,0.12)" stroke="#B07FC8" stroke-width="1"/>
+      <text x="17" y="17" text-anchor="middle" fill="#B07FC8" font-family="Space Mono,monospace" font-size="6.5">MCP</text>
+      <rect x="0"  y="26" width="34" height="16" rx="3" fill="rgba(176,127,200,0.1)"  stroke="#B07FC8" stroke-width="1"/>
+      <text x="17" y="37" text-anchor="middle" fill="#B07FC8" font-family="Space Mono,monospace" font-size="6.5">n8n</text>
+      <rect x="0"  y="46" width="34" height="16" rx="3" fill="rgba(176,127,200,0.08)" stroke="#B07FC8" stroke-width="1" opacity="0.85"/>
+      <text x="17" y="57" text-anchor="middle" fill="#B07FC8" font-family="Space Mono,monospace" font-size="6.5">SDK</text>
+      <line x1="34" y1="14"  x2="84" y2="28" stroke="#B07FC8" stroke-width="0.8" opacity="0.5" stroke-dasharray="4,2"/>
+      <line x1="34" y1="34"  x2="84" y2="28" stroke="#B07FC8" stroke-width="0.8" opacity="0.5" stroke-dasharray="4,2"/>
+      <line x1="34" y1="54"  x2="84" y2="28" stroke="#B07FC8" stroke-width="0.8" opacity="0.5" stroke-dasharray="4,2"/>
+      <rect x="84"  y="18" width="42" height="20" rx="4" fill="rgba(176,127,200,0.18)" stroke="#B07FC8" stroke-width="1.5"/>
+      <text x="105" y="31" text-anchor="middle" fill="#B07FC8" font-family="Space Mono,monospace" font-size="5.5" font-weight="700">Adapter</text>
+      <path d="M126,28 L158,28" stroke="#B07FC8" stroke-width="1.2" opacity="0.7" marker-end="url(#arr-l1a)"/>
+      <defs>
+        <marker id="arr-l1a" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+          <path d="M0,0.5 L4,2.5 L0,4.5" fill="none" stroke="#B07FC8" stroke-width="0.9"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+</div><!-- end lsw-body -->
+
+<div class="lsw-foot rv d3">Nível 5: protocolo &ensp;·&ensp; Nível 1: extensão &ensp;·&ensp; cada camada independente</div>
+
+<script>
+(function(){
+  var bands  = document.querySelectorAll('#L2d .lb');
+  var fired  = false;
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting && !fired){
+        fired = true;
+        // reveal bottom→top (layer 1 first, layer 5 last)
+        Array.from(bands).reverse().forEach(function(b, i){
+          setTimeout(function(){ b.classList.add('on'); }, i * 95);
+        });
+      }
+    });
+  }, { threshold: 0.2 });
+  io.observe(document.getElementById('L2d'));
+})();
+</script>
+</section>
+
+
+<!-- ══════════════════════════════════════════════
+     LEVEL 3 · COMPONENTS
+══════════════════════════════════════════════ -->
+<section id="L3" class="level">
+  <div class="comp-wrap">
+    <div class="comp-head">
+      <div class="level-label rv">L3 · Componentes</div>
+      <h2 class="section-h rv d1">Módulos do Core</h2>
+    </div>
+
+    <div class="comp-grid">
+
+      <div class="comp-card rv d1">
+        <!-- Event bus icon -->
+        <svg class="comp-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <circle cx="16" cy="6" r="3.5"/>
+          <circle cx="6"  cy="24" r="3.5"/>
+          <circle cx="26" cy="24" r="3.5"/>
+          <line x1="16" y1="9.5" x2="8"  y2="20.5"/>
+          <line x1="16" y1="9.5" x2="24" y2="20.5"/>
+          <line x1="9.5" y1="24" x2="22.5" y2="24"/>
+        </svg>
+        <div class="comp-name">Event Bus</div>
+        <div class="comp-file">core/events.py · core/telemetry.py</div>
+        <div class="comp-desc">Eventos tipados e versionados com <code style="font-family:monospace;font-size:0.8em;color:var(--gold)">event_name</code>, <code style="font-family:monospace;font-size:0.8em;color:var(--gold)">trace_id</code> e <code style="font-family:monospace;font-size:0.8em;color:var(--gold)">session_id</code>. Backbone de telemetria local com opt-in para exportação.</div>
+      </div>
+
+      <div class="comp-card rv d2">
+        <svg class="comp-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <rect x="5" y="5" width="22" height="22" rx="2"/>
+          <line x1="10" y1="16" x2="22" y2="16"/>
+          <line x1="10" y1="11" x2="18" y2="11"/>
+          <line x1="10" y1="21" x2="15" y2="21"/>
+          <circle cx="24" cy="9" r="3" fill="var(--orange)" stroke="none" opacity="0.7"/>
+        </svg>
+        <div class="comp-name">Session Controller</div>
+        <div class="comp-file">core/session.py</div>
+        <div class="comp-desc">Ciclo de vida completo da sessão: <em>start_session</em>, <em>push_audio_frame</em>, <em>interrupt</em>, <em>end_session</em>. Controla estados e rastreia contexto conversacional.</div>
+      </div>
+
+      <div class="comp-card rv d3">
+        <svg class="comp-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <circle cx="16" cy="16" r="10"/>
+          <path d="M16 10v6l4 3.5"/>
+          <circle cx="16" cy="16" r="2" fill="currentColor" opacity="0.6"/>
+        </svg>
+        <div class="comp-name">Orchestrator</div>
+        <div class="comp-file">core/orchestrator.py</div>
+        <div class="comp-desc">Ponto de entrada LLM + ferramentas. Gerencia turn-taking, tool routing e decisão de <em>sempre run_llm</em> após execução de tool no MVP.</div>
+      </div>
+
+      <div class="comp-card rv d4">
+        <svg class="comp-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <rect x="3"  y="12" width="8" height="8" rx="1"/>
+          <rect x="12" y="6"  width="8" height="8" rx="1"/>
+          <rect x="21" y="12" width="8" height="8" rx="1"/>
+          <line x1="11"  y1="16" x2="12" y2="12"/>
+          <line x1="20"  y1="12" x2="21" y2="16"/>
+          <line x1="7"   y1="20" x2="16" y2="26"/>
+          <line x1="25"  y1="20" x2="16" y2="26"/>
+        </svg>
+        <div class="comp-name">Tool Runtime</div>
+        <div class="comp-file">core/tool_runtime.py</div>
+        <div class="comp-desc">Execução paralela limitada por sessão, scheduling por dependência declarada, timeout por tool e cancelamento interruption-aware por política.</div>
+      </div>
+
+      <div class="comp-card rv d5">
+        <svg class="comp-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <ellipse cx="16" cy="9"  rx="11" ry="4"/>
+          <path d="M5 9v7c0 2.2 4.9 4 11 4s11-1.8 11-4V9"/>
+          <path d="M5 16v7c0 2.2 4.9 4 11 4s11-1.8 11-4v-7"/>
+        </svg>
+        <div class="comp-name">Memory Store</div>
+        <div class="comp-file">core/memory.py · core/summarizer.py</div>
+        <div class="comp-desc">Memória de curto prazo local com TTL configurável. Sumarização automática por threshold híbrido (tokens + mensagens). Abstração para RAG no MVP.</div>
+      </div>
+
+      <div class="comp-card rv d6">
+        <svg class="comp-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <path d="M16 3 L28 9 L28 23 L16 29 L4 23 L4 9 Z"/>
+          <path d="M16 3 L16 29"/>
+          <path d="M4 9 L28 9"/>
+          <path d="M4 23 L28 23"/>
+        </svg>
+        <div class="comp-name">Plugin Manifest</div>
+        <div class="comp-file">core/manifest.py · plugins/sdk.py</div>
+        <div class="comp-desc">Manifesto versionado com <em>tool_id</em>, <em>risk_level</em>, <em>autonomy_modes</em>. SDK para registrar funções Python com schema inferido de assinatura e docstring.</div>
+      </div>
+
+      <div class="comp-card rv d1">
+        <svg class="comp-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <rect x="3"  y="6"  width="11" height="8" rx="1"/>
+          <rect x="18" y="6"  width="11" height="8" rx="1"/>
+          <rect x="10" y="18" width="12" height="8" rx="1"/>
+          <line x1="14" y1="10" x2="18" y2="10"/>
+          <line x1="8.5" y1="14" x2="16" y2="18"/>
+          <line x1="23.5" y1="14" x2="16" y2="18"/>
+        </svg>
+        <div class="comp-name">Provider Registry</div>
+        <div class="comp-file">core/provider_registry.py</div>
+        <div class="comp-desc">Registro e troca de providers STT/TTS/LLM por configuração. Switch manual via <code style="font-family:monospace;font-size:0.8em;color:var(--gold)">/providers/switch</code> sem reinicialização do runtime.</div>
+      </div>
+
+      <div class="comp-card rv d2">
+        <svg class="comp-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <path d="M3 16 Q8 7 16 16 Q24 25 29 16"/>
+          <circle cx="3"  cy="16" r="2" fill="currentColor" opacity="0.6"/>
+          <circle cx="16" cy="16" r="2" fill="currentColor" opacity="0.6"/>
+          <circle cx="29" cy="16" r="2" fill="currentColor" opacity="0.6"/>
+        </svg>
+        <div class="comp-name">Streaming</div>
+        <div class="comp-file">core/streaming.py</div>
+        <div class="comp-desc">Gerenciamento de chunks para TTS otimista. Fragmentação por pontuação com suporte a <em>max_chunk_chars</em> e buffering adaptativo para naturalidade da fala.</div>
+      </div>
+
+      <div class="comp-card rv d3">
+        <svg class="comp-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <rect x="3"  y="3"  width="11" height="11" rx="1"/>
+          <rect x="18" y="18" width="11" height="11" rx="1"/>
+          <path d="M14 8 L24 8 L24 18"/>
+          <path d="M20 5 L24 8 L20 11" fill="currentColor" opacity="0.5"/>
+        </svg>
+        <div class="comp-name">MCP Adapter</div>
+        <div class="comp-file">adapters/mcp_http.py · mcp_tool_provider.py</div>
+        <div class="comp-desc">Descoberta e execução de ferramentas remotas via MCP HTTP. Tools externas disponíveis imediatamente após <code style="font-family:monospace;font-size:0.8em;color:var(--gold)">/tools/register-mcp</code>.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════
+     LEVEL 4 · TRANSPORT
+══════════════════════════════════════════════ -->
+<section id="L4" class="level">
+  <div class="transport-wrap">
+    <div class="transport-head">
+      <div class="level-label rv">L4 · Transporte</div>
+      <h2 class="section-h rv d1">Protocolos<br>& Endpoints</h2>
+    </div>
+
+    <div class="transport-grid">
+
+      <!-- HTTP REST -->
+      <div class="t-panel rv d1">
+        <div class="t-head">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4">
+            <circle cx="7" cy="7" r="6"/>
+            <path d="M1 7h12M7 1c-2 2-2.5 4-2.5 6s.5 4 2.5 6M7 1c2 2 2.5 4 2.5 6s-.5 4-2.5 6" stroke-linecap="round"/>
+          </svg>
+          HTTP / REST
+        </div>
+        <div class="t-body">
+          <div class="ep"><span class="m m-get">GET</span><span class="ep-path">/health</span></div>
+          <div class="ep"><span class="m m-get">GET</span><span class="ep-path">/tools</span></div>
+          <div class="ep"><span class="m m-get">GET</span><span class="ep-path">/providers</span></div>
+          <div class="ep"><span class="m m-get">GET</span><span class="ep-path">/events?limit=&amp;event_name=</span></div>
+          <div class="ep"><span class="m m-post">POST</span><span class="ep-path">/sessions/start</span></div>
+          <div class="ep"><span class="m m-post">POST</span><span class="ep-path">/sessions/{id}/turn</span></div>
+          <div class="ep"><span class="m m-post">POST</span><span class="ep-path">/sessions/{id}/interrupt</span></div>
+          <div class="ep"><span class="m m-post">POST</span><span class="ep-path">/sessions/{id}/end</span></div>
+          <div class="ep"><span class="m m-post">POST</span><span class="ep-path">/tools/register-mcp</span></div>
+          <div class="ep"><span class="m m-post">POST</span><span class="ep-path">/providers/switch</span></div>
+        </div>
+        <div class="states-wrap">
+          <div class="states-label">Estados de Sessão</div>
+          <div class="states-track">
+            <div class="state">Listening</div>
+            <div class="state">Thinking</div>
+            <div class="state">Speaking</div>
+            <div class="state">Interrupted</div>
+            <div class="state">ToolRunning</div>
+            <div class="state">Error</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SSE -->
+      <div class="t-panel rv d2">
+        <div class="t-head">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+            <path d="M1 7 Q4 3 7 7 Q10 11 13 7"/>
+          </svg>
+          SSE Streaming
+        </div>
+        <div class="t-body">
+          <div class="ep"><span class="m m-get">GET</span><span class="ep-path">/sessions/{id}/turn-stream-sse?text=…</span></div>
+          <div class="ep"><span class="m m-post">POST</span><span class="ep-path">/sessions/{id}/turn-stream</span></div>
+        </div>
+        <div class="flow">
+          <div class="flow-head">Sequência de eventos</div>
+          <div class="flow-row"><div class="flow-pip"></div><span>turn_started</span></div>
+          <div class="flow-row"><div class="flow-pip"></div><span>transcript &nbsp;←&nbsp; STT output</span></div>
+          <div class="flow-row"><div class="flow-pip"></div><span>llm_chunk × N</span></div>
+          <div class="flow-row"><div class="flow-pip"></div><span>tool_result × N</span></div>
+          <div class="flow-row"><div class="flow-pip"></div><span>tts_chunk × N</span></div>
+          <div class="flow-row">
+            <div class="flow-pip" style="background:var(--gold);animation:none;opacity:0.85"></div>
+            <span style="color:var(--gold)">turn_completed</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- WebSocket -->
+      <div class="t-panel rv d3">
+        <div class="t-head">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+            <path d="M1 7h2l2-4 2 8 2-4h2l2-3"/>
+          </svg>
+          WebSocket Realtime
+        </div>
+        <div class="t-body">
+          <div class="ep"><span class="m m-ws">WS</span><span class="ep-path">/ws/{session_id}</span></div>
+        </div>
+        <div class="flow">
+          <div class="flow-head">Client → Server</div>
+          <div class="flow-row">
+            <div class="flow-pip" style="background:#6BA5D8;animation:none;opacity:0.9"></div>
+            <span>{"type":"text_turn","text":"…"}</span>
+          </div>
+          <div class="flow-row">
+            <div class="flow-pip" style="background:#6BA5D8;animation:none;opacity:0.9"></div>
+            <span>{"type":"audio_turn","audio_base64":"…"}</span>
+          </div>
+          <div class="flow-row">
+            <div class="flow-pip" style="background:#6BA5D8;animation:none;opacity:0.9"></div>
+            <span>{"type":"interrupt"}</span>
+          </div>
+          <div class="flow-row">
+            <div class="flow-pip" style="background:#6BA5D8;animation:none;opacity:0.9"></div>
+            <span>{"type":"end"}</span>
+          </div>
+          <div class="flow-head" style="margin-top:0.6rem">Server → Client</div>
+          <div class="flow-row">
+            <div class="flow-pip" style="background:var(--orange);animation:none;opacity:0.9"></div>
+            <span>mesmo schema SSE ↑</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════
+     LEVEL 5 · ROADMAP + QUICK START
+══════════════════════════════════════════════ -->
+<section id="L5" class="level">
+  <div class="road-wrap">
+    <div class="road-head">
+      <div class="level-label rv">L5 · Roadmap</div>
+      <h2 class="section-h rv d1">Fases de<br>Evolução</h2>
+    </div>
+
+    <div class="road-grid">
+
+      <div class="road-card rv d1">
+        <div class="road-status status-done">Concluído</div>
+        <div class="road-phase">Fase 0</div>
+        <div class="road-title">Contratos & Core</div>
+        <div class="road-items">
+          <div class="road-item">Event bus tipado e versionado</div>
+          <div class="road-item">Ciclo de sessão completo</div>
+          <div class="road-item">Logs e telemetria locais</div>
+          <div class="road-item">Tool runtime + plugin SDK</div>
+          <div class="road-item">MCP HTTP adapter</div>
+        </div>
+      </div>
+
+      <div class="road-card rv d2">
+        <div class="road-status status-active">Em curso</div>
+        <div class="road-phase">Fase 1</div>
+        <div class="road-title">V2V Reativo</div>
+        <div class="road-items">
+          <div class="road-item">Voice-to-voice completo (STT→LLM→TTS)</div>
+          <div class="road-item">Tool-calling paralelo com limites</div>
+          <div class="road-item">MCP/n8n integração real</div>
+          <div class="road-item">Barge-in obrigatório</div>
+          <div class="road-item">Guardrails de entrada/saída</div>
+        </div>
+      </div>
+
+      <div class="road-card rv d3">
+        <div class="road-status status-next">Próximo</div>
+        <div class="road-phase">Fase 2</div>
+        <div class="road-title">Marketplace</div>
+        <div class="road-items">
+          <div class="road-item">Wizard de instalação de plugins</div>
+          <div class="road-item">Validação CI + compat matrix</div>
+          <div class="road-item">Gestão de variáveis e credenciais</div>
+        </div>
+      </div>
+
+      <div class="road-card rv d4">
+        <div class="road-status status-next">Planejado</div>
+        <div class="road-phase">Fase 3</div>
+        <div class="road-title">RAG & Memória</div>
+        <div class="road-items">
+          <div class="road-item">RAG completo com sumarização híbrida</div>
+          <div class="road-item">Resumos persistidos em storage local</div>
+          <div class="road-item">Injeção de contexto por perfil</div>
+        </div>
+      </div>
+
+      <div class="road-card rv d5">
+        <div class="road-status status-next">Planejado</div>
+        <div class="road-phase">Fase 4</div>
+        <div class="road-title">Proatividade</div>
+        <div class="road-items">
+          <div class="road-item">Modos por tool: manual · agenda · autônomo</div>
+          <div class="road-item">Confirmação obrigatória para ações críticas</div>
+          <div class="road-item">Modelo "LLM sem segredos"</div>
+        </div>
+      </div>
+
+      <div class="road-card rv d6">
+        <div class="road-status status-next">Futuro</div>
+        <div class="road-phase">Fase 5</div>
+        <div class="road-title">Multilíngue</div>
+        <div class="road-items">
+          <div class="road-item">Inglês como segundo idioma</div>
+          <div class="road-item">Expansão de providers STT/TTS</div>
+          <div class="road-item">Suporte a accent / dialeto regional</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Quick start -->
+    <div class="qstart">
+      <div class="code-block rv d1">
+        <div class="code-label">HTTP Runtime</div>
+        <pre><span class="ps">$ </span>python3 -m runtime.main \
+    --host 0.0.0.0 --port 8080
+
+<span class="c"># Iniciar sessão</span>
+<span class="ps">$ </span>curl -X POST localhost:8080/sessions/start
+
+<span class="c"># Enviar turn de texto</span>
+<span class="ps">$ </span>curl -X POST localhost:8080/sessions/{id}/turn \
+    -d '{"text": "Olá, Guará!"}'</pre>
+      </div>
+
+      <div class="code-block rv d2">
+        <div class="code-label">Plugin SDK</div>
+        <pre><span class="kw">from</span> plugins.sdk <span class="kw">import</span> tool
+
+<span class="fn">@tool</span>
+<span class="kw">def</span> <span class="fn">buscar_clima</span>(cidade: str) -> str:
+    <span class="st">"""Previsão do tempo para a cidade."""</span>
+    <span class="kw">return</span> <span class="fn">fetch_weather</span>(cidade)
+
+<span class="c"># Schema inferido da assinatura + docstring</span>
+<span class="c"># Tool disponível em GET /tools imediatamente</span></pre>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- footer -->
+<footer class="footer-strip">
+  <div class="footer-brand">
+    <svg width="18" height="18" viewBox="0 0 380 310" fill="none">
+      <circle cx="316" cy="68" r="6" fill="#E85820"/>
+      <circle cx="280" cy="12" r="3" fill="#E85820" opacity="0.6"/>
+    </svg>
+    GUARÁ
+  </div>
+  <span>Voice-to-Voice Agent Architecture · Open Source · Python-first</span>
+  <span>P95 ≤ 2.0s</span>
+</footer>
+
+
+<script>
+/* ════════════════════════════════════════════════
+   LOBO GUARÁ CONSTELLATION
+════════════════════════════════════════════════ */
+(function () {
+  const ns = 'http://www.w3.org/2000/svg';
+
+  // Key points: side-profile maned wolf facing right
+  // ViewBox 0 0 380 310
+  const P = [
+    // [x, y]
+    [355, 92],   // 0  nose tip
+    [316, 68],   // 1  eye  ← special
+    [280, 12],   // 2  ear tip
+    [296, 62],   // 3  ear front base
+    [324, 58],   // 4  ear rear / skull
+    [332, 76],   // 5  cheek/jaw upper
+    [348, 112],  // 6  jaw lower
+    [255, 76],   // 7  nape
+    [222, 55],   // 8  mane peak
+    [216, 90],   // 9  mane base
+    [243, 120],  // 10 throat
+    [268, 140],  // 11 chest
+    [216, 134],  // 12 back shoulder
+    [162, 128],  // 13 back mid
+    [100, 134],  // 14 rump
+    [258, 170],  // 15 belly front
+    [118, 174],  // 16 belly rear
+    [68,  150],  // 17 tail base
+    [36,  136],  // 18 tail mid
+    [12,  118],  // 19 tail tip
+    // Front leg (left, prominent)
+    [256, 178],  // 20 fl top
+    [249, 222],  // 21 fl knee
+    [245, 268],  // 22 fl lower
+    [241, 308],  // 23 fl paw
+    // Back leg
+    [120, 180],  // 24 bl top
+    [122, 224],  // 25 bl knee
+    [124, 268],  // 26 bl lower
+    [126, 308],  // 27 bl paw
+  ];
+
+  const C = [
+    // Face
+    [0,5],[5,4],[4,2],[2,3],[3,4],[1,4],[0,1],[0,6],[6,5],[1,3],
+    // Neck / mane
+    [4,7],[7,8],[8,9],[9,10],[10,11],[7,9],
+    // Body top
+    [11,12],[12,13],[13,14],
+    // Belly
+    [11,15],[15,16],
+    // Ribs
+    [12,15],[13,16],
+    // Hip
+    [14,16],[14,17],
+    // Tail
+    [17,18],[18,19],
+    // Front leg
+    [11,20],[15,20],[20,21],[21,22],[22,23],
+    // Back leg
+    [14,24],[16,24],[24,25],[25,26],[26,27],
+  ];
+
+  const linesG = document.getElementById('wl');
+  const dotsG  = document.getElementById('wd');
+
+  // Draw lines with staggered SVG animate
+  C.forEach(([a, b], i) => {
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', P[a][0]);
+    line.setAttribute('y1', P[a][1]);
+    line.setAttribute('x2', P[b][0]);
+    line.setAttribute('y2', P[b][1]);
+    line.setAttribute('stroke', '#E85820');
+    line.setAttribute('stroke-width', '1.3');
+    line.setAttribute('stroke-linecap', 'round');
+
+    const len = Math.hypot(P[b][0]-P[a][0], P[b][1]-P[a][1]).toFixed(1);
+    line.setAttribute('stroke-dasharray', len);
+    line.setAttribute('stroke-dashoffset', len);
+
+    const begin = (0.15 + i * 0.045).toFixed(3);
+
+    const animDash = document.createElementNS(ns, 'animate');
+    animDash.setAttribute('attributeName', 'stroke-dashoffset');
+    animDash.setAttribute('from', len);
+    animDash.setAttribute('to', '0');
+    animDash.setAttribute('dur', '0.55s');
+    animDash.setAttribute('begin', begin + 's');
+    animDash.setAttribute('fill', 'freeze');
+    animDash.setAttribute('calcMode', 'spline');
+    animDash.setAttribute('keyTimes', '0;1');
+    animDash.setAttribute('keySplines', '0.4 0 0.2 1');
+    line.appendChild(animDash);
+
+    const animOp = document.createElementNS(ns, 'animate');
+    animOp.setAttribute('attributeName', 'opacity');
+    animOp.setAttribute('from', '0');
+    animOp.setAttribute('to', '0.72');
+    animOp.setAttribute('dur', '0.2s');
+    animOp.setAttribute('begin', begin + 's');
+    animOp.setAttribute('fill', 'freeze');
+    line.appendChild(animOp);
+
+    linesG.appendChild(line);
+  });
+
+  // Draw dots
+  P.forEach(([x, y], i) => {
+    const isEye = i === 1;
+    const r     = isEye ? 4 : (i === 8 ? 3.2 : 2.4);
+    const col   = isEye ? '#FF6E35' : '#E85820';
+    const begin = (0.85 + i * 0.055).toFixed(3);
+
+    const circle = document.createElementNS(ns, 'circle');
+    circle.setAttribute('cx', x);
+    circle.setAttribute('cy', y);
+    circle.setAttribute('r', '0');
+    circle.setAttribute('fill', col);
+    circle.setAttribute('opacity', isEye ? '1' : '0.82');
+
+    const aR = document.createElementNS(ns, 'animate');
+    aR.setAttribute('attributeName', 'r');
+    aR.setAttribute('from', '0');
+    aR.setAttribute('to', r);
+    aR.setAttribute('dur', '0.4s');
+    aR.setAttribute('begin', begin + 's');
+    aR.setAttribute('fill', 'freeze');
+    aR.setAttribute('calcMode', 'spline');
+    aR.setAttribute('keyTimes', '0;1');
+    aR.setAttribute('keySplines', '0.34 1.56 0.64 1');
+    circle.appendChild(aR);
+
+    // Ongoing pulse
+    const aPulse = document.createElementNS(ns, 'animate');
+    aPulse.setAttribute('attributeName', 'r');
+    aPulse.setAttribute('values', `${r};${r*1.3};${r}`);
+    aPulse.setAttribute('dur', `${2.8 + i*0.22}s`);
+    aPulse.setAttribute('repeatCount', 'indefinite');
+    aPulse.setAttribute('begin', `${parseFloat(begin)+0.4}s`);
+    circle.appendChild(aPulse);
+
+    dotsG.appendChild(circle);
+  });
+})();
+
+
+/* ════════════════════════════════════════════════
+   PARTICLE BACKGROUND
+════════════════════════════════════════════════ */
+(function () {
+  const canvas = document.getElementById('particle-canvas');
+  const ctx    = canvas.getContext('2d');
+  let W, H;
+  const PARTICLES = 90;
+  const CONNECT_DIST = 105;
+  let pts = [];
+
+  function resize() {
+    W = canvas.width  = canvas.offsetWidth;
+    H = canvas.height = canvas.offsetHeight;
+  }
+
+  function mkPt() {
+    return {
+      x:  Math.random() * W,
+      y:  Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.28,
+      vy: (Math.random() - 0.5) * 0.28,
+      r:  Math.random() * 1.4 + 0.3,
+      a:  Math.random() * 0.45 + 0.08,
+    };
+  }
+
+  resize();
+  for (let i = 0; i < PARTICLES; i++) pts.push(mkPt());
+  window.addEventListener('resize', resize);
+
+  function tick() {
+    ctx.clearRect(0, 0, W, H);
+
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0) p.x = W;
+      if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H;
+      if (p.y > H) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(232,88,32,${p.a})`;
+      ctx.fill();
+
+      for (let j = i + 1; j < pts.length; j++) {
+        const q  = pts[j];
+        const dx = p.x - q.x;
+        const dy = p.y - q.y;
+        const d  = Math.sqrt(dx*dx + dy*dy);
+        if (d < CONNECT_DIST) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+          ctx.strokeStyle = `rgba(232,88,32,${0.14 * (1 - d/CONNECT_DIST)})`;
+          ctx.lineWidth   = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+
+/* ════════════════════════════════════════════════
+   NAVIGATION
+════════════════════════════════════════════════ */
+function goSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+
+const navDots  = document.querySelectorAll('.nav-dot');
+const sections = document.querySelectorAll('.level');
+
+const secObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting && e.intersectionRatio > 0.4) {
+      const sid = e.target.id;
+      navDots.forEach(d => d.classList.toggle('active', d.dataset.sid === sid));
+    }
+  });
+}, { threshold: 0.4 });
+
+sections.forEach(s => secObs.observe(s));
+
+
+/* ════════════════════════════════════════════════
+   REVEAL ON SCROLL
+════════════════════════════════════════════════ */
+const rvObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('show'); });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.rv').forEach(el => rvObs.observe(el));
+
+/* arch layers staggered */
+document.querySelectorAll('.arch-row').forEach((el, i) => {
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) setTimeout(() => el.classList.add('show'), i * 110);
+    });
+  }, { threshold: 0.1 });
+  obs.observe(el);
+});
+
+
+/* ════════════════════════════════════════════════
+   JOURNEY PIPELINE ANIMATION (L2)
+════════════════════════════════════════════════ */
+(function initJourney() {
+  const svg = document.getElementById('journey-svg');
+  if (!svg) return;
+  const ns = 'http://www.w3.org/2000/svg';
+  const bulletsG = svg.querySelector('#j-bullets');
+  const bargeEl  = document.getElementById('j-barge');
+  let   running  = false;
+  let   cycleN   = 0;
+
+  const pathIds = ['jp-mic-llm','jp-llm-t1','jp-llm-t2','jp-llm-t3',
+                   'jp-t1-llm','jp-t2-llm','jp-t3-llm','jp-llm-spk'];
+  const pathEls = {};
+  pathIds.forEach(id => { pathEls[id] = document.getElementById(id); });
+
+  function glowNode(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.filter = 'brightness(2) drop-shadow(0 0 10px rgba(232,88,32,0.9))';
+    setTimeout(() => { el.style.filter = ''; }, 450);
+  }
+
+  function fireBullet(pathKey, color, dur, r) {
+    return new Promise(resolve => {
+      const path = pathEls[pathKey];
+      if (!path) { resolve(); return; }
+      const len = path.getTotalLength();
+      const c = document.createElementNS(ns, 'circle');
+      c.setAttribute('r', r || 5);
+      c.setAttribute('fill', color);
+      c.setAttribute('filter', 'url(#jglow-sm)');
+      bulletsG.appendChild(c);
+      const t0 = performance.now();
+      function frame(now) {
+        const t  = Math.min((now - t0) / dur, 1);
+        const e  = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2;
+        const pt = path.getPointAtLength(e * len);
+        c.setAttribute('cx', pt.x.toFixed(1));
+        c.setAttribute('cy', pt.y.toFixed(1));
+        c.setAttribute('opacity', (t < 0.08 ? t/0.08 : t > 0.92 ? (1-t)/0.08 : 1).toFixed(2));
+        if (t < 1) requestAnimationFrame(frame);
+        else { c.remove(); resolve(); }
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function cycle() {
+    cycleN++;
+    const doBargeIn = (cycleN % 3 === 0);
+
+    // 1. Voice in → LLM
+    glowNode('jn-mic');
+    await fireBullet('jp-mic-llm', '#8BBFD4', 720);
+    glowNode('jn-llm');
+    await wait(80);
+
+    // 2. Fan-out to 3 tools simultaneously
+    await Promise.all([
+      fireBullet('jp-llm-t1', '#C8852A', 520, 4),
+      fireBullet('jp-llm-t2', '#C8852A', 520, 4),
+      fireBullet('jp-llm-t3', '#C8852A', 520, 4),
+    ]);
+    glowNode('jn-t1'); glowNode('jn-t2'); glowNode('jn-t3');
+    await wait(120);
+
+    // 3. Tools return simultaneously
+    await Promise.all([
+      fireBullet('jp-t1-llm', '#D4952A', 460, 4),
+      fireBullet('jp-t2-llm', '#D4952A', 460, 4),
+      fireBullet('jp-t3-llm', '#D4952A', 460, 4),
+    ]);
+    glowNode('jn-llm');
+    await wait(150);
+
+    // 4. LLM → output (with possible barge-in)
+    if (doBargeIn) {
+      // Start the output bullet, then interrupt midway
+      const prom = fireBullet('jp-llm-spk', '#E85820', 800);
+      await wait(400);
+      if (bargeEl) {
+        bargeEl.style.opacity = '1';
+        await wait(1600);
+        bargeEl.style.opacity = '0';
+      }
+      await prom;
+    } else {
+      await fireBullet('jp-llm-spk', '#E85820', 820);
+      glowNode('jn-spk');
+    }
+
+    await wait(1600);
+    cycle();
+  }
+
+  // Start animation when L2 becomes visible
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !running) {
+        running = true;
+        cycle();
+      }
+    });
+  }, { threshold: 0.3 });
+  obs.observe(document.getElementById('L2'));
+})();
+
+
+/* ════════════════════════════════════════════════
+   BARGE-IN WAVEFORM ANIMATION (L2c Card 1)
+════════════════════════════════════════════════ */
+(function initBargeWave() {
+  const agentPath = document.getElementById('wv-agent');
+  const userPath  = document.getElementById('wv-user');
+  const flatPath  = document.getElementById('wv-flat');
+  const mark      = document.getElementById('wv-mark');
+  const userLbl   = document.getElementById('wv-user-label');
+  if (!agentPath) return;
+
+  let phase = 'speaking'; // speaking → barge → reset
+  let t0 = performance.now();
+  let animRunning = false;
+
+  // Waveform point generation
+  function agentWave(amp) {
+    const pts = [];
+    for (let x = 0; x <= 280; x += 8) {
+      const y = 44 + amp * Math.sin(x * 0.18 + t0 * 0.003);
+      pts.push(`${x},${y.toFixed(1)}`);
+    }
+    return 'M ' + pts.join(' L ');
+  }
+
+  function userWave(amp, startX) {
+    const pts = [];
+    for (let x = startX; x <= 280; x += 6) {
+      const y = 44 + amp * Math.sin(x * 0.22 + t0 * 0.004);
+      pts.push(`${x},${y.toFixed(1)}`);
+    }
+    if (pts.length === 0) return `M ${startX},44`;
+    return 'M ' + pts.join(' L ');
+  }
+
+  const BARGE_X = 155;
+  let   bargeTimer = null;
+  const CYCLE_MS   = 4200;
+
+  function scheduleBarge() {
+    bargeTimer = setTimeout(() => {
+      phase = 'barge';
+      // Show vertical marker
+      mark.setAttribute('stroke', 'rgba(232,88,32,0.55)');
+      // Show user label
+      userLbl.setAttribute('fill', 'rgba(107,165,216,0.85)');
+      // Agent flattens, user waveform appears
+      setTimeout(() => {
+        phase = 'reset';
+        mark.setAttribute('stroke', 'rgba(232,88,32,0)');
+        userPath.style.opacity = '0';
+        userLbl.setAttribute('fill', 'rgba(107,165,216,0)');
+        flatPath.style.opacity = '0';
+        phase = 'speaking';
+        t0 = performance.now();
+        scheduleBarge();
+      }, 1800);
+    }, CYCLE_MS);
+  }
+
+  function tick(now) {
+    t0 = now;
+    if (phase === 'speaking') {
+      agentPath.setAttribute('d', agentWave(18));
+      agentPath.style.opacity = '0.85';
+      userPath.style.opacity  = '0';
+      flatPath.style.opacity  = '0';
+    } else if (phase === 'barge') {
+      // Agent quickly flattens from barge point
+      const agentD = 'M 0,44 L ' + BARGE_X + ',44';
+      agentPath.setAttribute('d', agentD);
+      agentPath.style.opacity = '0.3';
+      flatPath.setAttribute('d', 'M ' + BARGE_X + ',44 L 280,44');
+      flatPath.style.opacity = '0.35';
+      userPath.setAttribute('d', userWave(14, BARGE_X));
+      userPath.style.opacity = '0.9';
+    } else {
+      agentPath.setAttribute('d', agentWave(18));
+    }
+    if (animRunning) requestAnimationFrame(tick);
+  }
+
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !animRunning) {
+        animRunning = true;
+        scheduleBarge();
+        requestAnimationFrame(tick);
+      }
+      if (!e.isIntersecting && animRunning) {
+        animRunning = false;
+        clearTimeout(bargeTimer);
+      }
+    });
+  }, { threshold: 0.2 });
+  const card = agentPath.closest('.pw');
+  if (card) obs.observe(card);
+})();
+
+
+/* ════════════════════════════════════════════════
+   PARALLEL BARS ANIMATION (L2c Card 2)
+════════════════════════════════════════════════ */
+(function initParallelBars() {
+  const t1 = document.getElementById('pb-t1');
+  const t2 = document.getElementById('pb-t2');
+  const t3 = document.getElementById('pb-t3');
+  const g1 = document.getElementById('pb-g1');
+  const g2 = document.getElementById('pb-g2');
+  const g3 = document.getElementById('pb-g3');
+  if (!t1) return;
+
+  function animBars() {
+    // Reset
+    [t1,t2,t3,g1,g2,g3].forEach(b => {
+      b.style.transition = 'none';
+      b.style.width = '0%';
+    });
+
+    // Guará: all parallel (start together)
+    setTimeout(() => {
+      [g1,g2,g3].forEach(b => {
+        b.style.transition = 'width 0.9s cubic-bezier(0.4,0,0.2,1)';
+        b.style.width = '100%';
+      });
+    }, 200);
+
+    // Traditional: sequential (one at a time)
+    setTimeout(() => {
+      t1.style.transition = 'width 0.85s cubic-bezier(0.4,0,0.2,1)';
+      t1.style.width = '100%';
+    }, 200);
+    setTimeout(() => {
+      t2.style.transition = 'width 0.85s cubic-bezier(0.4,0,0.2,1)';
+      t2.style.width = '100%';
+    }, 1150);
+    setTimeout(() => {
+      t3.style.transition = 'width 0.85s cubic-bezier(0.4,0,0.2,1)';
+      t3.style.width = '100%';
+    }, 2080);
+
+    // Restart cycle
+    setTimeout(animBars, 4200);
+  }
+
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) animBars(); });
+  }, { threshold: 0.3, once: true });
+  const card = t1.closest('.pw');
+  if (card) obs.observe(card);
+})();
+
+
+/* ════════════════════════════════════════════════
+   PROVIDER SWAP ANIMATION (L2c Card 3)
+════════════════════════════════════════════════ */
+(function initProviderSwap() {
+  const slots = [
+    { el: document.getElementById('pv-stt'),
+      vals: ['Whisper','DeepSpeech','AssemblyAI','Vosk'] },
+    { el: document.getElementById('pv-llm'),
+      vals: ['GPT-4o','Claude 3.5','Llama 3.3','Gemini Pro'] },
+    { el: document.getElementById('pv-tts'),
+      vals: ['ElevenLabs','Coqui','Azure TTS','OpenAI TTS'] },
+  ];
+  if (!slots[0].el) return;
+
+  const indices = [0, 0, 0];
+
+  function swapSlot(i) {
+    const slot = slots[i];
+    if (!slot.el) return;
+    slot.el.style.opacity = '0';
+    setTimeout(() => {
+      indices[i] = (indices[i] + 1) % slot.vals.length;
+      slot.el.textContent = slot.vals[indices[i]];
+      slot.el.style.opacity = '1';
+    }, 220);
+  }
+
+  function cycle() {
+    // Swap a random slot every ~1.8s
+    const i = Math.floor(Math.random() * 3);
+    swapSlot(i);
+    setTimeout(cycle, 1600 + Math.random() * 800);
+  }
+
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) setTimeout(cycle, 1200); });
+  }, { threshold: 0.3, once: true });
+  const card = slots[0].el.closest('.pw');
+  if (card) obs.observe(card);
+})();
+
+
+/* ════════════════════════════════════════════════
+   STREAMING CHUNKS ANIMATION (L2c Card 4)
+════════════════════════════════════════════════ */
+(function initStreaming() {
+  const container = document.getElementById('stream-vis');
+  if (!container) return;
+  const chunks = container.querySelectorAll('.sch');
+
+  function cycle() {
+    // Reset all
+    chunks.forEach(c => c.classList.remove('show'));
+    // Reveal one by one
+    chunks.forEach((c, i) => {
+      setTimeout(() => c.classList.add('show'), 300 + i * 200);
+    });
+    // Hold, then restart
+    setTimeout(cycle, 300 + chunks.length * 200 + 1800);
+  }
+
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) cycle(); });
+  }, { threshold: 0.3, once: true });
+  obs.observe(container);
+})();
+
+</script>
+</body>
+</html>

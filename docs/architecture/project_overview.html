@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Guara - Visao de Arquitetura e Implementacao</title>
+    <link rel="stylesheet" href="./project_overview.css" />
+  </head>
+  <body>
+    <header class="hero" id="top">
+      <p class="kicker">Guara Voice-to-Voice Platform</p>
+      <h1>Projeto completo em camadas: produto, arquitetura e execucao</h1>
+      <p class="lead">
+        Documento visual para alinhamento de time. Consolida decisoes travadas, contratos, requisitos,
+        fluxos runtime e roadmap de entrega.
+      </p>
+      <div class="metrics">
+        <article>
+          <h2>P95 alvo</h2>
+          <p>&lt;= 2.0s</p>
+        </article>
+        <article>
+          <h2>Historias mapeadas</h2>
+          <p>US-001 a US-030</p>
+        </article>
+        <article>
+          <h2>Requisitos funcionais</h2>
+          <p>RF-001 a RF-016</p>
+        </article>
+        <article>
+          <h2>Releases</h2>
+          <p>MVP-R1, MVP-R2, MVP-R3</p>
+        </article>
+      </div>
+      <nav class="quick-nav" aria-label="Navegacao principal">
+        <a href="#niveis">Niveis</a>
+        <a href="#arquitetura">Arquitetura</a>
+        <a href="#interfaces">Interfaces</a>
+        <a href="#requisitos">Requisitos</a>
+        <a href="#roadmap">Roadmap</a>
+      </nav>
+    </header>
+
+    <main>
+      <section id="niveis" class="panel">
+        <h2>Niveis de detalhe</h2>
+        <p>
+          Use os botoes para alternar profundidade da pagina. O Nivel 1 e para visao executiva, o Nivel 3
+          e para implementar direto no codigo.
+        </p>
+        <div class="level-switch" role="tablist" aria-label="Nivel de detalhe">
+          <button type="button" class="active" data-level="1">Nivel 1: Executivo</button>
+          <button type="button" data-level="2">Nivel 2: Arquitetura</button>
+          <button type="button" data-level="3">Nivel 3: Implementacao</button>
+        </div>
+      </section>
+
+      <section class="panel" data-level-min="1">
+        <h2>Resumo executivo</h2>
+        <ul class="checklist">
+          <li>Conversa por voz continua, sem botao obrigatorio.</li>
+          <li>Core orientado a contratos para plugar STT, TTS, LLM e tools.</li>
+          <li>MCP/n8n como trilha no-code prioritaria para ecossistema de ferramentas.</li>
+          <li>Barge-in, streaming incremental e telemetria local no baseline.</li>
+          <li>Roadmap fechado para hardening realtime, memoria, marketplace e proatividade controlada.</li>
+        </ul>
+      </section>
+
+      <section id="arquitetura" class="panel" data-level-min="2">
+        <h2>Desenho 1: Arquitetura em camadas</h2>
+        <p>Visao macro do runtime e dos pontos de extensao.</p>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 1200 630" role="img" aria-label="Arquitetura em camadas do Guara">
+            <defs>
+              <linearGradient id="layerA" x1="0" x2="1">
+                <stop offset="0%" stop-color="#0f766e"></stop>
+                <stop offset="100%" stop-color="#14b8a6"></stop>
+              </linearGradient>
+              <linearGradient id="layerB" x1="0" x2="1">
+                <stop offset="0%" stop-color="#0f172a"></stop>
+                <stop offset="100%" stop-color="#1e293b"></stop>
+              </linearGradient>
+              <linearGradient id="layerC" x1="0" x2="1">
+                <stop offset="0%" stop-color="#7c2d12"></stop>
+                <stop offset="100%" stop-color="#ea580c"></stop>
+              </linearGradient>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#94a3b8"></path>
+              </marker>
+            </defs>
+
+            <rect x="40" y="40" width="1120" height="96" rx="16" fill="url(#layerA)"></rect>
+            <text x="70" y="78" fill="#ecfeff" font-size="26" font-weight="700">Entrada de Voz</text>
+            <text x="70" y="112" fill="#ecfeff" font-size="19">Microfone, VAD, STT, supressao de ruido, diarizacao opcional</text>
+
+            <rect x="40" y="170" width="1120" height="120" rx="16" fill="url(#layerB)"></rect>
+            <text x="70" y="210" fill="#e2e8f0" font-size="26" font-weight="700">Orquestracao e Estado de Sessao</text>
+            <text x="70" y="244" fill="#e2e8f0" font-size="19">SessionController, ToolRouter, Guardrails, Provider Registry, event bus</text>
+
+            <rect x="40" y="324" width="760" height="130" rx="16" fill="#1f2937"></rect>
+            <text x="70" y="365" fill="#f1f5f9" font-size="26" font-weight="700">Inteligencia + Acoes</text>
+            <text x="70" y="399" fill="#f1f5f9" font-size="18">LLM + tool-calling paralelo + politicas de timeout/cancelamento</text>
+            <text x="70" y="428" fill="#f1f5f9" font-size="18">MCP tools, providers locais/cloud, contratos message+data</text>
+
+            <rect x="834" y="324" width="326" height="130" rx="16" fill="#334155"></rect>
+            <text x="862" y="365" fill="#f8fafc" font-size="26" font-weight="700">Memoria</text>
+            <text x="862" y="397" fill="#f8fafc" font-size="18">TTL local, sumarizacao</text>
+            <text x="862" y="425" fill="#f8fafc" font-size="18">RAG real na Fase B</text>
+
+            <rect x="40" y="488" width="1120" height="96" rx="16" fill="url(#layerC)"></rect>
+            <text x="70" y="526" fill="#fff7ed" font-size="26" font-weight="700">Saida de Voz + Streaming</text>
+            <text x="70" y="560" fill="#fff7ed" font-size="19">TTS, SSE/WS, eventos incrementais, barge-in, telemetria local-first</text>
+
+            <line x1="600" y1="136" x2="600" y2="170" stroke="#94a3b8" stroke-width="3" marker-end="url(#arrow)"></line>
+            <line x1="600" y1="290" x2="600" y2="324" stroke="#94a3b8" stroke-width="3" marker-end="url(#arrow)"></line>
+            <line x1="600" y1="454" x2="600" y2="488" stroke="#94a3b8" stroke-width="3" marker-end="url(#arrow)"></line>
+          </svg>
+        </div>
+      </section>
+
+      <section class="panel" data-level-min="2">
+        <h2>Desenho 2: Fluxo de turno (texto/audio)</h2>
+        <p>Sequencia operacional usada em HTTP e em canais realtime.</p>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 1200 540" role="img" aria-label="Fluxo de turno do Guara">
+            <defs>
+              <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#0f172a"></path>
+              </marker>
+            </defs>
+
+            <text x="70" y="40" class="lane-title">Cliente</text>
+            <text x="260" y="40" class="lane-title">Runtime</text>
+            <text x="450" y="40" class="lane-title">Orquestrador</text>
+            <text x="670" y="40" class="lane-title">ToolRouter</text>
+            <text x="890" y="40" class="lane-title">Providers</text>
+            <text x="1060" y="40" class="lane-title">Stream</text>
+
+            <line x1="90" y1="60" x2="90" y2="500" class="lane"></line>
+            <line x1="280" y1="60" x2="280" y2="500" class="lane"></line>
+            <line x1="500" y1="60" x2="500" y2="500" class="lane"></line>
+            <line x1="720" y1="60" x2="720" y2="500" class="lane"></line>
+            <line x1="940" y1="60" x2="940" y2="500" class="lane"></line>
+            <line x1="1090" y1="60" x2="1090" y2="500" class="lane"></line>
+
+            <line x1="90" y1="100" x2="280" y2="100" class="flow" marker-end="url(#arrow2)"></line>
+            <text x="112" y="90" class="flow-label">1) turn(text|audio)</text>
+
+            <line x1="280" y1="150" x2="500" y2="150" class="flow" marker-end="url(#arrow2)"></line>
+            <text x="304" y="140" class="flow-label">2) valida sessao + guardrail input</text>
+
+            <line x1="500" y1="200" x2="720" y2="200" class="flow" marker-end="url(#arrow2)"></line>
+            <text x="524" y="190" class="flow-label">3) extrai/chama tools</text>
+
+            <line x1="720" y1="250" x2="940" y2="250" class="flow" marker-end="url(#arrow2)"></line>
+            <text x="744" y="240" class="flow-label">4) MCP/local tool exec</text>
+
+            <line x1="940" y1="300" x2="500" y2="300" class="flow" marker-end="url(#arrow2)"></line>
+            <text x="650" y="290" class="flow-label">5) tool_result + fallback</text>
+
+            <line x1="500" y1="350" x2="940" y2="350" class="flow" marker-end="url(#arrow2)"></line>
+            <text x="524" y="340" class="flow-label">6) run_llm final + TTS</text>
+
+            <line x1="940" y1="400" x2="1090" y2="400" class="flow" marker-end="url(#arrow2)"></line>
+            <text x="962" y="390" class="flow-label">7) llm_chunk/tts_chunk</text>
+
+            <line x1="1090" y1="450" x2="90" y2="450" class="flow" marker-end="url(#arrow2)"></line>
+            <text x="420" y="440" class="flow-label">8) turn_completed + stream_done</text>
+          </svg>
+        </div>
+      </section>
+
+      <section id="interfaces" class="panel" data-level-min="3">
+        <h2>Contratos e pontos de extensao</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Interfaces centrais (core/contracts.py)</h3>
+            <ul>
+              <li><code>ISTTProvider</code></li>
+              <li><code>ITTSProvider</code></li>
+              <li><code>ILLMProvider</code></li>
+              <li><code>IToolProvider</code></li>
+              <li><code>IMemoryProvider</code></li>
+              <li><code>IGuardrail</code></li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Contrato obrigatorio de tool</h3>
+            <pre><code>{
+  "message": "Resumo falavel",
+  "data": { "payload": "estruturado" }
+}</code></pre>
+            <p>Policy por ferramenta: <code>cancel_on_interruption</code> e <code>timeout_seconds</code>.</p>
+          </article>
+          <article class="card">
+            <h3>Manifesto de plugin (minimo)</h3>
+            <ul>
+              <li><code>tool_id</code>, <code>name</code>, <code>version</code></li>
+              <li><code>description</code>, <code>capabilities</code></li>
+              <li><code>input_schema</code>, <code>output_schema</code></li>
+              <li><code>compatibility.guara_core</code></li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Eventos de stream</h3>
+            <ul>
+              <li><code>transcript</code></li>
+              <li><code>turn_started</code></li>
+              <li><code>llm_chunk</code>, <code>tts_chunk</code></li>
+              <li><code>tool_result</code>, <code>turn_completed</code></li>
+              <li><code>stream_done</code>, <code>stream_cancelled</code>, <code>error</code></li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" data-level-min="3">
+        <h2>APIs e protocolos publicos</h2>
+        <div class="grid three">
+          <article class="card">
+            <h3>Saude e introspeccao</h3>
+            <ul>
+              <li><code>GET /health</code></li>
+              <li><code>GET /tools</code></li>
+              <li><code>GET /providers</code></li>
+              <li><code>GET /events</code></li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Sessao e turnos</h3>
+            <ul>
+              <li><code>POST /sessions/start</code></li>
+              <li><code>POST /sessions/{session_id}/turn</code></li>
+              <li><code>POST /sessions/{session_id}/turn-stream</code></li>
+              <li><code>GET /sessions/{session_id}/turn-stream-sse</code></li>
+              <li><code>POST /sessions/{session_id}/interrupt</code></li>
+              <li><code>POST /sessions/{session_id}/end</code></li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Provider e ecossistema</h3>
+            <ul>
+              <li><code>POST /providers/switch</code></li>
+              <li><code>POST /tools/register-mcp</code></li>
+              <li><code>WS /ws/{session_id}</code></li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="requisitos" class="panel" data-level-min="2">
+        <h2>Requisitos ordenados por release</h2>
+        <p>Priorizacao MoSCoW consolidada para execucao.</p>
+        <div class="release-board">
+          <article>
+            <h3>MVP-R1 (baseline)</h3>
+            <ul>
+              <li>RF Must: RF-001..RF-009, RF-011..RF-015</li>
+              <li>US Must: US-001, US-002, US-003, US-004, US-005, US-006, US-008, US-009</li>
+              <li>Entrega: V2V base, tools plugaveis, streaming e telemetria local</li>
+            </ul>
+          </article>
+          <article>
+            <h3>MVP-R2 (hardening)</h3>
+            <ul>
+              <li>RF Should: RF-010, RF-016</li>
+              <li>US foco: US-011..US-016, US-019, US-023, US-024, US-026, US-028, US-030</li>
+              <li>Entrega: resiliencia, guardrails mais fortes, memoria e operacao</li>
+            </ul>
+          </article>
+          <article>
+            <h3>MVP-R3 (expansao)</h3>
+            <ul>
+              <li>US foco: US-017, US-018, US-020, US-021, US-022, US-025, US-027, US-029</li>
+              <li>Entrega: autonomia controlada, sofisticacao de voz e inteligencia</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" data-level-min="3">
+        <h2>Historias de usuario por dominio</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Conversa e UX de voz</h3>
+            <p><strong>US:</strong> 001, 002, 006, 007, 011, 012, 013, 014, 021, 022</p>
+            <p><strong>Meta:</strong> reduzir atrito na interacao e manter baixa latencia percebida.</p>
+          </article>
+          <article class="card">
+            <h3>Ferramentas, plugins e ecossistema</h3>
+            <p><strong>US:</strong> 003, 004, 009, 015, 016, 020</p>
+            <p><strong>Meta:</strong> extensibilidade com governanca e resiliencia de execucao.</p>
+          </article>
+          <article class="card">
+            <h3>Seguranca e confiabilidade</h3>
+            <p><strong>US:</strong> 019, 026, 027</p>
+            <p><strong>Meta:</strong> prevenir uso indevido e reforcar autorizacao de acoes sensiveis.</p>
+          </article>
+          <article class="card">
+            <h3>Memoria e melhoria continua</h3>
+            <p><strong>US:</strong> 023, 024, 025, 028, 029, 030</p>
+            <p><strong>Meta:</strong> personalizacao, analytics e evolucao guiada por dados.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="roadmap" class="panel" data-level-min="2">
+        <h2>Roadmap tecnico por fase</h2>
+        <div class="timeline">
+          <article>
+            <h3>Fase A - Hardening realtime</h3>
+            <p>Auth por token, backpressure por canal, timeout de stream e heartbeat WS.</p>
+          </article>
+          <article>
+            <h3>Fase B - Memoria RAG real</h3>
+            <p>Provider vetorial, injecao de contexto por relevancia e sumarizacao persistida.</p>
+          </article>
+          <article>
+            <h3>Fase C - Marketplace operacional</h3>
+            <p>Indice de ferramentas, CI de validacao e fluxo de aprovacao humana.</p>
+          </article>
+          <article>
+            <h3>Fase D - Proatividade controlada</h3>
+            <p>Scheduler por ferramenta com enforce de confirmacao para acao critica.</p>
+          </article>
+          <article>
+            <h3>Fase E - Providers reais</h3>
+            <p>Integracoes cloud/local com medicao de P95 e politica de fallback.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" data-level-min="3">
+        <h2>Mapa do codigo (source of truth)</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Core</h3>
+            <ul>
+              <li><code>core/contracts.py</code></li>
+              <li><code>core/tools.py</code></li>
+              <li><code>core/tool_runtime.py</code></li>
+              <li><code>core/session.py</code></li>
+              <li><code>core/events.py</code></li>
+              <li><code>core/provider_registry.py</code></li>
+              <li><code>core/streaming.py</code></li>
+              <li><code>core/manifest.py</code></li>
+              <li><code>core/summarizer.py</code>, <code>core/memory.py</code>, <code>core/telemetry.py</code></li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Adapters e runtime</h3>
+            <ul>
+              <li><code>adapters/stt_local.py</code>, <code>adapters/tts_local.py</code>, <code>adapters/llm_rule_based.py</code></li>
+              <li><code>adapters/mcp_http.py</code>, <code>adapters/mcp_tool_provider.py</code></li>
+              <li><code>runtime/app.py</code>, <code>runtime/http_server.py</code></li>
+              <li><code>runtime/realtime.py</code>, <code>runtime/websocket_server.py</code>, <code>runtime/ws_main.py</code></li>
+              <li><code>tests/</code> com suite <code>unittest</code></li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>Fonte oficial: <code>docs/architecture/IMPLEMENTATION_SPEC.md</code> e <code>docs/architecture/MASTER_PLAN.md</code>.</p>
+      <a href="#top">Voltar ao topo</a>
+    </footer>
+
+    <script>
+      (function () {
+        var buttons = document.querySelectorAll(".level-switch button");
+        var sections = document.querySelectorAll("[data-level-min]");
+        function applyLevel(level) {
+          sections.forEach(function (section) {
+            var min = Number(section.getAttribute("data-level-min"));
+            section.hidden = min > level;
+          });
+          buttons.forEach(function (button) {
+            button.classList.toggle("active", Number(button.dataset.level) === level);
+          });
+        }
+        buttons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            applyLevel(Number(button.dataset.level));
+          });
+        });
+        applyLevel(1);
+      })();
+    </script>
+  </body>
+</html>

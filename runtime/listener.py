@@ -11,6 +11,7 @@ import numpy as np
 import pyaudio
 
 from adapters.wakeword_vad import SpeechActivityDetector
+from runtime.app import GuaraRuntime
 
 
 class _State(Enum):
@@ -41,8 +42,8 @@ def _beep(freq: int = 440, duration_ms: int = 150, rate: int = 22050) -> None:
             stderr=subprocess.DEVNULL,
             timeout=duration_ms / 1000 + 1,
         )
-    except FileNotFoundError:
-        pass  # aplay not available (headless/Docker)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass  # aplay not available or timed out
 
 
 def _play_audio(pcm_bytes: bytes, rate: int = 22050) -> None:
@@ -54,8 +55,8 @@ def _play_audio(pcm_bytes: bytes, rate: int = 22050) -> None:
             stderr=subprocess.DEVNULL,
             timeout=30,
         )
-    except FileNotFoundError:
-        pass  # aplay not available (headless/Docker)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass  # aplay not available or timed out
 
 
 class WakeWordListener:
@@ -73,7 +74,7 @@ class WakeWordListener:
 
     def __init__(
         self,
-        runtime,
+        runtime: GuaraRuntime,
         *,
         wake_word: str = "guará",
         stop_word: str = "obrigado",
@@ -112,6 +113,7 @@ class WakeWordListener:
             frames_per_buffer=480,
         )
 
+        frame = b""
         state = _State.SLEEPING
         window: list[bytes] = []
         recording: list[bytes] = []
@@ -129,7 +131,7 @@ class WakeWordListener:
                         combined = b"".join(window)
                         if self._vad.is_speech(combined):
                             text = self._transcribe_sync(window)
-                            if self.wake_word in text.lower():
+                            if self._check_for_word(text, self.wake_word):
                                 print(
                                     f"Wake word detectado! Gravando... "
                                     f"(diga '{self.stop_word}' para encerrar)"
@@ -144,7 +146,7 @@ class WakeWordListener:
                     recording.append(frame)
                     if len(recording) % self._STT_CHECK_FRAMES == 0:
                         text = self._transcribe_sync(recording[-self._STT_CHECK_FRAMES:])
-                        if self.stop_word in text.lower():
+                        if self._check_for_word(text, self.stop_word):
                             print("Stop word detectado. Enviando...")
                             _beep(660, 100)
                             _beep(660, 100)

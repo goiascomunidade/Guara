@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 
 
@@ -24,4 +25,11 @@ class AutonomyMode(str, Enum):
     MANUAL = "manual"
     SCHEDULE = "schedule"
     AUTONOMOUS = "autonomous"
+
+
+@dataclass(frozen=True)
+class TranscriptionChunk:
+    text: str
+    is_final: bool
+    confidence: float = 1.0
 

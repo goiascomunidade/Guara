@@ -62,6 +62,26 @@ class Orchestrator:
 
         return OrchestratorResponse(reply_text=reply_text, tool_results=tool_results)
 
+    async def stream_user_text(
+        self,
+        user_text: str,
+        *,
+        session_id: str,
+        trace_id: str,
+        user_id: str | None = None,
+    ):
+        if self._guardrail:
+            ok, reason = await self._guardrail.validate_input(user_text)
+            if not ok:
+                yield reason or "input blocked"
+                return
+
+        async for token in self._llm_provider.stream(
+            [{"role": "user", "content": user_text}],
+            tools=None,
+        ):
+            yield token
+
     def _extract_tool_calls(self, llm_result: dict[str, Any]) -> list[ToolCall]:
         raw_calls = llm_result.get("tool_calls", [])
         calls: list[ToolCall] = []

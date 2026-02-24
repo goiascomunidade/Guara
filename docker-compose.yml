@@ -1,0 +1,15 @@
+services:
+  guara:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      GUARA_LLM: ${GUARA_LLM:-openai}
+      GUARA_STT: ${GUARA_STT:-whisper}
+      GUARA_TTS: ${GUARA_TTS:-piper}
+      PIPER_MODEL_PATH: /models/pt_BR-faber-medium.onnx
+      WHISPER_MODEL_SIZE: ${WHISPER_MODEL_SIZE:-base}
+      PIPER_LENGTH_SCALE: ${PIPER_LENGTH_SCALE:-1.0}

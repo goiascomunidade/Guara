@@ -38,6 +38,25 @@ class _StubSTT:
         yield TranscriptionChunk(text=text, is_final=True)
 
 
+from core.contracts import ILLMProvider
+
+
+class _StubLLM:
+    async def complete(self, messages, tools=None) -> dict:
+        return {"content": "ok", "tool_calls": []}
+
+    async def stream(self, messages, tools=None) -> AsyncIterator[str]:
+        for token in ["ol", "á"]:
+            yield token
+
+
+class TestLLMStreamContract(unittest.IsolatedAsyncioTestCase):
+    async def test_llm_stream_satisfies_protocol(self) -> None:
+        provider: ILLMProvider = _StubLLM()
+        tokens = [t async for t in provider.stream([{"role": "user", "content": "oi"}])]
+        self.assertEqual("".join(tokens), "olá")
+
+
 class TestSTTStreamContract(unittest.IsolatedAsyncioTestCase):
     async def test_stt_stream_satisfies_protocol(self) -> None:
         provider: ISTTProvider = _StubSTT()

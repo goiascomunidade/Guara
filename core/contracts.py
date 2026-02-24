@@ -33,6 +33,14 @@ class ILLMProvider(Protocol):
     async def complete(self, messages: list[dict[str, Any]], tools: Any | None = None) -> dict[str, Any]:
         raise NotImplementedError
 
+    @abstractmethod
+    def stream(
+        self,
+        messages: list[dict[str, Any]],
+        tools: Any | None = None,
+    ) -> AsyncIterator[str]:
+        raise NotImplementedError
+
 
 class IToolProvider(Protocol):
     @property

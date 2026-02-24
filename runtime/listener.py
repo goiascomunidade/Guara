@@ -34,18 +34,28 @@ def _beep(freq: int = 440, duration_ms: int = 150, rate: int = 22050) -> None:
     """Play a short sine-wave beep via aplay."""
     t = np.linspace(0, duration_ms / 1000, int(rate * duration_ms / 1000), endpoint=False)
     samples = (np.sin(2 * np.pi * freq * t) * 32767).astype(np.int16)
-    subprocess.run(
-        ["aplay", "-q", "-r", str(rate), "-f", "S16_LE", "-c", "1"],
-        input=samples.tobytes(),
-    )
+    try:
+        subprocess.run(
+            ["aplay", "-q", "-r", str(rate), "-f", "S16_LE", "-c", "1"],
+            input=samples.tobytes(),
+            stderr=subprocess.DEVNULL,
+            timeout=duration_ms / 1000 + 1,
+        )
+    except FileNotFoundError:
+        pass  # aplay not available (headless/Docker)
 
 
 def _play_audio(pcm_bytes: bytes, rate: int = 22050) -> None:
     """Play raw 16-bit mono PCM audio via aplay."""
-    subprocess.run(
-        ["aplay", "-q", "-r", str(rate), "-f", "S16_LE", "-c", "1"],
-        input=pcm_bytes,
-    )
+    try:
+        subprocess.run(
+            ["aplay", "-q", "-r", str(rate), "-f", "S16_LE", "-c", "1"],
+            input=pcm_bytes,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+        )
+    except FileNotFoundError:
+        pass  # aplay not available (headless/Docker)
 
 
 class WakeWordListener:
@@ -75,13 +85,17 @@ class WakeWordListener:
         self._vad = SpeechActivityDetector(threshold=vad_threshold)
         self._session_id: str | None = None
 
-    async def _check_for_word(self, text: str, word: str) -> bool:
+    def _check_for_word(self, text: str, word: str) -> bool:
         return word.lower() in text.lower()
 
     def _transcribe_sync(self, frames: list[bytes]) -> str:
         wav = _pcm_to_wav(frames)
         stt = self._runtime.stt_provider
-        return asyncio.run(stt.transcribe(wav, language="pt"))
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(stt.transcribe(wav, language="pt"))
+        finally:
+            loop.close()
 
     def run(self) -> None:
         """Blocking main loop. Run in main thread or a dedicated process."""
@@ -106,7 +120,8 @@ class WakeWordListener:
 
         try:
             while True:
-                frame = stream.read(480, exception_on_overflow=False)
+                if state != _State.SENDING:
+                    frame = stream.read(480, exception_on_overflow=False)
 
                 if state == _State.SLEEPING:
                     window.append(frame)

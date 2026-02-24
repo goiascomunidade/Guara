@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 
 class TestWakeWordListener(unittest.TestCase):
@@ -49,15 +49,15 @@ class TestWakeWordListener(unittest.TestCase):
 
     def test_wake_word_check_returns_true_when_word_in_transcript(self):
         listener = self._make_listener(wake_word="guará")
-        result = asyncio.run(listener._check_for_word("Guará, como você está?", "guará"))
+        result = listener._check_for_word("Guará, como você está?", "guará")
         assert result is True
 
     def test_wake_word_check_returns_false_when_absent(self):
         listener = self._make_listener(wake_word="guará")
-        result = asyncio.run(listener._check_for_word("Olá, tudo bem?", "guará"))
+        result = listener._check_for_word("Olá, tudo bem?", "guará")
         assert result is False
 
     def test_stop_word_check_case_insensitive(self):
         listener = self._make_listener(stop_word="obrigado")
-        result = asyncio.run(listener._check_for_word("Obrigado!", "obrigado"))
+        result = listener._check_for_word("Obrigado!", "obrigado")
         assert result is True

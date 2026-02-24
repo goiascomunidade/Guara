@@ -14,7 +14,7 @@ class ISTTProvider(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def transcribe_stream(
+    async def transcribe_stream(
         self,
         audio_stream: AsyncIterator[bytes],
         language: str | None = None,
@@ -28,7 +28,7 @@ class ITTSProvider(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def synthesize_stream(
+    async def synthesize_stream(
         self,
         text_stream: AsyncIterator[str],
         voice: str | None = None,
@@ -46,7 +46,7 @@ class ILLMProvider(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def stream(
+    async def stream(
         self,
         messages: list[dict[str, Any]],
         tools: Any | None = None,

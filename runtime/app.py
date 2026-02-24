@@ -57,15 +57,24 @@ class GuaraRuntime:
             activate=True,
         )
 
-        self.stt_provider = self.provider_registry.get_active("stt")
-        self.tts_provider = self.provider_registry.get_active("tts")
-        self.llm_provider = self.provider_registry.get_active("llm")
-        self.guardrail = guardrail or BasicGuardrail()
+        guardrail_instance = guardrail or BasicGuardrail()
         self.orchestrator = Orchestrator(
             llm_provider=self.llm_provider,
             tool_router=self.tool_router,
-            guardrail=self.guardrail,
+            guardrail=guardrail_instance,
         )
+
+    @property
+    def stt_provider(self):
+        return self.provider_registry.get_active("stt")
+
+    @property
+    def tts_provider(self):
+        return self.provider_registry.get_active("tts")
+
+    @property
+    def llm_provider(self):
+        return self.provider_registry.get_active("llm")
 
     def register_tool(self, provider, policy: ToolPolicy | None = None) -> None:
         self.tool_router.register_tool(provider, policy=policy)
@@ -80,26 +89,22 @@ class GuaraRuntime:
     ) -> dict:
         self.provider_registry.register(kind=kind, name=name, provider=provider, activate=activate)
         if activate:
-            await self._apply_provider_switch(kind=kind, name=name)
+            if kind == "llm":
+                self.orchestrator.set_llm_provider(self.provider_registry.get_active("llm"))
+            await self.event_bus.publish(
+                ProviderSwitchedEvent(
+                    trace_id=new_trace_id(),
+                    session_id=None,
+                    provider_kind=kind,
+                    provider_name=name,
+                )
+            )
         return {"kind": kind, "name": name, "active": activate}
 
     async def switch_provider(self, *, kind: str, name: str) -> dict:
         self.provider_registry.switch(kind=kind, name=name)
-        await self._apply_provider_switch(kind=kind, name=name)
-        return {"kind": kind, "name": name, "active": True}
-
-    async def _apply_provider_switch(self, *, kind: str, name: str) -> None:
-        provider = self.provider_registry.get_active(kind)
-        if kind == "stt":
-            self.stt_provider = provider
-        elif kind == "tts":
-            self.tts_provider = provider
-        elif kind == "llm":
-            self.llm_provider = provider
-            self.orchestrator.set_llm_provider(provider)
-        else:
-            raise ValueError(f"unsupported provider kind: {kind}")
-
+        if kind == "llm":
+            self.orchestrator.set_llm_provider(self.provider_registry.get_active("llm"))
         await self.event_bus.publish(
             ProviderSwitchedEvent(
                 trace_id=new_trace_id(),
@@ -108,6 +113,7 @@ class GuaraRuntime:
                 provider_name=name,
             )
         )
+        return {"kind": kind, "name": name, "active": True}
 
     async def list_providers(self) -> dict:
         providers = self.provider_registry.list()

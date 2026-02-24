@@ -21,10 +21,17 @@ class Session:
 class SessionController:
     """Session lifecycle controller for voice interactions."""
 
-    def __init__(self, *, event_bus: EventBus | None = None, tool_router: ToolRouter | None = None):
+    def __init__(
+        self,
+        *,
+        event_bus: EventBus | None = None,
+        tool_router: ToolRouter | None = None,
+        tts_provider=None,  # ITTSProvider | None — avoid circular import with Protocol
+    ) -> None:
         self._sessions: dict[str, Session] = {}
         self._event_bus = event_bus
         self._tool_router = tool_router
+        self._tts_provider = tts_provider
 
     def get_session(self, session_id: str) -> Session | None:
         return self._sessions.get(session_id)
@@ -78,6 +85,9 @@ class SessionController:
         cancelled_calls: list[str] = []
         if self._tool_router:
             cancelled_calls = await self._tool_router.cancel_interruptible_calls()
+
+        if self._tts_provider:
+            await self._tts_provider.cancel(session_id)
 
         if self._event_bus:
             await self._event_bus.publish(

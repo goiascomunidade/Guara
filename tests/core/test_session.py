@@ -27,6 +27,30 @@ class _LongTool:
         return {"done": True}
 
 
+class TestSessionBargeIn(unittest.IsolatedAsyncioTestCase):
+    async def test_interrupt_calls_tts_cancel(self) -> None:
+        cancelled: list[str] = []
+
+        class _TrackingTTS:
+            async def synthesize(self, text, voice=None):
+                return b""
+
+            async def synthesize_stream(self, text_stream, voice=None):
+                async for _ in text_stream:
+                    yield b""
+
+            async def cancel(self, session_id: str) -> None:
+                cancelled.append(session_id)
+
+        bus = EventBus()
+        controller = SessionController(event_bus=bus, tts_provider=_TrackingTTS())
+
+        await controller.start_session("s-tts", user_id=None)
+        await controller.interrupt("s-tts")
+
+        self.assertIn("s-tts", cancelled)
+
+
 class TestSessionController(unittest.IsolatedAsyncioTestCase):
     async def test_session_interrupt_cancels_running_tools(self) -> None:
         bus = EventBus()

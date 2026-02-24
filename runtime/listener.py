@@ -4,6 +4,7 @@ import asyncio
 import base64
 import io
 import subprocess
+import unicodedata
 import wave
 from enum import Enum, auto
 
@@ -86,8 +87,13 @@ class WakeWordListener:
         self._vad = SpeechActivityDetector(threshold=vad_threshold)
         self._session_id: str | None = None
 
+    @staticmethod
+    def _normalize(s: str) -> str:
+        """Strip accents so 'guará' and 'guara' both match."""
+        return unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode("ascii").lower()
+
     def _check_for_word(self, text: str, word: str) -> bool:
-        return word.lower() in text.lower()
+        return self._normalize(word) in self._normalize(text)
 
     def _transcribe_sync(self, frames: list[bytes]) -> str:
         wav = _pcm_to_wav(frames)

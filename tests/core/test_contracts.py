@@ -38,7 +38,44 @@ class _StubSTT:
         yield TranscriptionChunk(text=text, is_final=True)
 
 
-from core.contracts import ILLMProvider
+from core.contracts import ILLMProvider, ITTSProvider
+
+
+class _StubTTS:
+    def __init__(self):
+        self.cancelled: list[str] = []
+
+    async def synthesize(self, text: str, voice=None) -> bytes:
+        return text.encode()
+
+    async def synthesize_stream(
+        self,
+        text_stream: AsyncIterator[str],
+        voice=None,
+    ) -> AsyncIterator[bytes]:
+        async for token in text_stream:
+            yield token.encode()
+
+    async def cancel(self, session_id: str) -> None:
+        self.cancelled.append(session_id)
+
+
+async def _str_stream(*tokens: str) -> AsyncIterator[str]:
+    for t in tokens:
+        yield t
+
+
+class TestTTSStreamContract(unittest.IsolatedAsyncioTestCase):
+    async def test_tts_stream_satisfies_protocol(self) -> None:
+        provider: ITTSProvider = _StubTTS()
+        chunks = [c async for c in provider.synthesize_stream(_str_stream("ol", "á"))]
+        self.assertEqual(b"".join(chunks), "olá".encode())
+
+    async def test_tts_cancel_is_idempotent(self) -> None:
+        provider = _StubTTS()
+        await provider.cancel("s-1")
+        await provider.cancel("s-1")
+        self.assertEqual(provider.cancelled, ["s-1", "s-1"])
 
 
 class _StubLLM:

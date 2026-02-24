@@ -27,6 +27,18 @@ class ITTSProvider(Protocol):
     async def synthesize(self, text: str, voice: str | None = None) -> bytes:
         raise NotImplementedError
 
+    @abstractmethod
+    def synthesize_stream(
+        self,
+        text_stream: AsyncIterator[str],
+        voice: str | None = None,
+    ) -> AsyncIterator[bytes]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def cancel(self, session_id: str) -> None:
+        raise NotImplementedError
+
 
 class ILLMProvider(Protocol):
     @abstractmethod

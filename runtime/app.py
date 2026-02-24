@@ -33,7 +33,7 @@ class GuaraRuntime:
     ) -> None:
         self.event_bus = EventBus()
         self.event_store = LocalEventStore()
-        self._event_store_attached = False
+        self.event_bus.subscribe_all_sync(self.event_store.handle_event)
         self.tool_router = ToolRouter(max_parallel_calls=max_parallel_calls, event_bus=self.event_bus)
         self.session_controller = SessionController(event_bus=self.event_bus, tool_router=self.tool_router)
         self.provider_registry = ProviderRegistry()
@@ -67,12 +67,6 @@ class GuaraRuntime:
             guardrail=self.guardrail,
         )
 
-    async def _ensure_event_store_attached(self) -> None:
-        if self._event_store_attached:
-            return
-        await self.event_bus.subscribe_all(self.event_store.handle_event)
-        self._event_store_attached = True
-
     def register_tool(self, provider, policy: ToolPolicy | None = None) -> None:
         self.tool_router.register_tool(provider, policy=policy)
 
@@ -84,14 +78,12 @@ class GuaraRuntime:
         provider,
         activate: bool = False,
     ) -> dict:
-        await self._ensure_event_store_attached()
         self.provider_registry.register(kind=kind, name=name, provider=provider, activate=activate)
         if activate:
             await self._apply_provider_switch(kind=kind, name=name)
         return {"kind": kind, "name": name, "active": activate}
 
     async def switch_provider(self, *, kind: str, name: str) -> dict:
-        await self._ensure_event_store_attached()
         self.provider_registry.switch(kind=kind, name=name)
         await self._apply_provider_switch(kind=kind, name=name)
         return {"kind": kind, "name": name, "active": True}
@@ -118,7 +110,6 @@ class GuaraRuntime:
         )
 
     async def list_providers(self) -> dict:
-        await self._ensure_event_store_attached()
         providers = self.provider_registry.list()
         payload = [
             {"kind": item.kind, "name": item.name, "is_active": item.is_active} for item in providers
@@ -126,7 +117,6 @@ class GuaraRuntime:
         return {"providers": payload}
 
     async def start_session(self, user_id: str | None = None, session_id: str | None = None) -> dict:
-        await self._ensure_event_store_attached()
         sid = session_id or str(uuid4())
         session = await self.session_controller.start_session(sid, user_id=user_id)
         return {
@@ -192,7 +182,6 @@ class GuaraRuntime:
         *,
         language: str | None = None,
     ) -> dict:
-        await self._ensure_event_store_attached()
         text = await self.stt_provider.transcribe(audio, language=language)
         result = await self.process_text_turn(session_id, text)
         result["transcript"] = text
@@ -283,7 +272,6 @@ class GuaraRuntime:
         language: str | None = None,
         max_chunk_chars: int = 120,
     ):
-        await self._ensure_event_store_attached()
         text = await self.stt_provider.transcribe(audio, language=language)
         yield {"type": "transcript", "text": text}
         async for event in self.stream_text_turn_events(
@@ -294,12 +282,10 @@ class GuaraRuntime:
             yield event
 
     async def interrupt_session(self, session_id: str) -> dict:
-        await self._ensure_event_store_attached()
         cancelled = await self.session_controller.interrupt(session_id)
         return {"session_id": session_id, "cancelled_calls": cancelled}
 
     async def end_session(self, session_id: str) -> dict:
-        await self._ensure_event_store_attached()
         await self.session_controller.end_session(session_id)
         return {"session_id": session_id, "state": "ended"}
 
@@ -312,7 +298,6 @@ class GuaraRuntime:
         timeout_seconds: float = 5.0,
         policy: ToolPolicy | None = None,
     ) -> dict:
-        await self._ensure_event_store_attached()
         if not server_url:
             raise ValueError("server_url is required")
         client = MCPHTTPClient(
@@ -340,7 +325,6 @@ class GuaraRuntime:
         event_name: str | None = None,
         session_id: str | None = None,
     ) -> dict:
-        await self._ensure_event_store_attached()
         return {
             "events": self.event_store.list_events(
                 limit=limit,
@@ -350,7 +334,6 @@ class GuaraRuntime:
         }
 
     async def list_tools(self) -> dict:
-        await self._ensure_event_store_attached()
         names = self.tool_router.list_tools()
         payload = []
         for name in names:
@@ -365,7 +348,6 @@ class GuaraRuntime:
         return {"tools": payload}
 
     async def _run_turn(self, session_id: str, user_text: str):
-        await self._ensure_event_store_attached()
         turn_id = await self.session_controller.push_audio_frame(session_id, b"")
         response = await self.orchestrator.handle_user_text(
             user_text,

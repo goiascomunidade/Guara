@@ -126,6 +126,10 @@ class EventBus:
         async with self._lock:
             self._all_handlers.append(handler)
 
+    def subscribe_all_sync(self, handler: EventHandler) -> None:
+        """Synchronous subscribe for use during initial wiring (e.g. in __init__)."""
+        self._all_handlers.append(handler)
+
     async def publish(self, event: TypedEvent) -> None:
         record = event.to_record()
         async with self._lock:

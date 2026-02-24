@@ -15,11 +15,13 @@ openai   = ["openai>=1.30.0"]
 whisper  = ["faster-whisper>=1.0.0"]
 deepgram = ["deepgram-sdk>=3.0.0"]
 piper    = ["piper-tts>=1.4.0"]
+wakeword = ["openwakeword>=0.4.0", "pyaudio>=0.2.13"]
 all-providers = [
   "guara[openai]",
   "guara[whisper]",
   "guara[deepgram]",
   "guara[piper]",
+  "guara[wakeword]",
 ]
 
 [tool.pytest.ini_options]

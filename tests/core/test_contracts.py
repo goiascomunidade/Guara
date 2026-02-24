@@ -94,6 +94,48 @@ class TestLLMStreamContract(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("".join(tokens), "olá")
 
 
+from adapters.stt_local import LocalSTTProvider
+from adapters.llm_rule_based import RuleBasedLLMProvider
+from adapters.tts_local import LocalTTSProvider
+
+
+class TestLocalAdapterStreaming(unittest.IsolatedAsyncioTestCase):
+    async def test_local_stt_stream_emits_final_chunk(self) -> None:
+        provider = LocalSTTProvider()
+        audio = b"oi tudo bem"
+
+        async def _stream():
+            yield audio
+
+        chunks = [c async for c in provider.transcribe_stream(_stream())]
+        self.assertGreaterEqual(len(chunks), 1)
+        self.assertTrue(any(c.is_final for c in chunks))
+        self.assertTrue(chunks[-1].text)
+
+    async def test_rule_based_llm_stream_concatenates(self) -> None:
+        provider = RuleBasedLLMProvider()
+        messages = [{"role": "user", "content": "oi"}]
+        tokens = [t async for t in provider.stream(messages)]
+        full = "".join(tokens)
+        self.assertTrue(full)
+
+    async def test_local_tts_stream_produces_bytes(self) -> None:
+        provider = LocalTTSProvider()
+
+        async def _stream():
+            yield "olá "
+            yield "mundo"
+
+        chunks = [c async for c in provider.synthesize_stream(_stream())]
+        self.assertGreaterEqual(len(chunks), 1)
+        self.assertTrue(all(isinstance(c, bytes) for c in chunks))
+
+    async def test_local_tts_cancel_no_op(self) -> None:
+        provider = LocalTTSProvider()
+        await provider.cancel("session-1")
+        await provider.cancel("session-1")  # idempotente
+
+
 class TestSTTStreamContract(unittest.IsolatedAsyncioTestCase):
     async def test_stt_stream_satisfies_protocol(self) -> None:
         provider: ISTTProvider = _StubSTT()

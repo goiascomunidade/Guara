@@ -43,3 +43,13 @@ class RuleBasedLLMProvider:
             "tool_calls": [],
         }
 
+    async def stream(
+        self,
+        messages: list[dict],
+        tools=None,
+    ):
+        result = await self.complete(messages, tools)
+        content = result.get("content", "")
+        for char in content:
+            yield char
+

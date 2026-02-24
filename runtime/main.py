@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import argparse
 
-from transport.http_server import GuaraHTTPServer  # fixed
+from runtime.config import build_runtime
+from transport.http_server import GuaraHTTPServer
 
 
 def parse_args() -> argparse.Namespace:
@@ -14,7 +15,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    server = GuaraHTTPServer()
+    runtime = build_runtime()
+    server = GuaraHTTPServer(runtime=runtime)
     server.serve(host=args.host, port=args.port)
 
 

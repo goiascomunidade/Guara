@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import AsyncIterator
 
 
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
@@ -36,4 +37,32 @@ def split_text_for_streaming(text: str, *, max_chunk_chars: int = 120) -> list[s
         chunks.append(current)
 
     return chunks
+
+
+SENTENCE_END_CHARS = frozenset(".!?")
+
+
+async def sentence_buffer(
+    token_stream: AsyncIterator[str],
+    *,
+    min_chars: int = 1,
+) -> AsyncIterator[str]:
+    """Accumulate LLM tokens and yield complete sentences for TTS.
+
+    Yields a sentence whenever a sentence-ending character (.!?) is
+    encountered and the buffer has at least min_chars characters.
+    Any remaining buffer is yielded at stream end.
+    """
+    buffer = ""
+    async for token in token_stream:
+        buffer += token
+        if any(buffer.rstrip().endswith(c) for c in SENTENCE_END_CHARS):
+            sentence = buffer.strip()
+            if len(sentence) >= min_chars:
+                yield sentence
+                buffer = ""
+
+    remainder = buffer.strip()
+    if remainder:
+        yield remainder
 

@@ -5,7 +5,7 @@ import base64
 import unittest
 
 from runtime.app import GuaraRuntime
-from runtime.realtime import RealtimeSessionManager
+from transport.realtime import RealtimeSessionManager
 
 
 class TestRealtimeSessionManager(unittest.IsolatedAsyncioTestCase):

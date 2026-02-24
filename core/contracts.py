@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections.abc import AsyncIterator
 from typing import Any, Protocol
 
 from core.tools import ToolExecutionContext, ToolSpec
+from core.types import TranscriptionChunk
 
 
 class ISTTProvider(Protocol):
     @abstractmethod
     async def transcribe(self, audio: bytes, language: str | None = None) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    def transcribe_stream(
+        self,
+        audio_stream: AsyncIterator[bytes],
+        language: str | None = None,
+    ) -> AsyncIterator[TranscriptionChunk]:
         raise NotImplementedError
 
 

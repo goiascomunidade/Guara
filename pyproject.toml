@@ -11,6 +11,16 @@ dev = [
   "pytest>=8.0.0",
   "pytest-asyncio>=0.23.0",
 ]
+openai   = ["openai>=1.30.0"]
+whisper  = ["faster-whisper>=1.0.0"]
+deepgram = ["deepgram-sdk>=3.0.0"]
+piper    = ["piper-tts>=1.4.0"]
+all-providers = [
+  "guara[openai]",
+  "guara[whisper]",
+  "guara[deepgram]",
+  "guara[piper]",
+]
 
 [tool.pytest.ini_options]
 pythonpath = [

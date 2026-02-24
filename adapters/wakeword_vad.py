@@ -18,7 +18,12 @@ class SpeechActivityDetector:
         self._threshold = threshold
 
     def is_speech(self, frame: bytes) -> bool:
-        """Return True if any VAD chunk in `frame` exceeds the threshold."""
+        """Return True if any VAD chunk in `frame` exceeds the threshold.
+
+        openwakeword 0.4.x always returns a scalar ``np.floating`` from
+        ``VAD.predict``; the array branch is a safety fallback in case a
+        future version returns per-chunk scores instead.
+        """
         audio = np.frombuffer(frame, dtype=np.int16)
         scores = self._vad.predict(audio, frame_size=self._FRAME_SIZE)
         if isinstance(scores, (int, float, np.floating)):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import io
+import os
 import subprocess
 import unicodedata
 import wave
@@ -119,6 +120,8 @@ class WakeWordListener:
             frames_per_buffer=480,
         )
 
+        debug = os.environ.get("GUARA_DEBUG", "").lower() in ("1", "true", "yes")
+
         frame = b""
         state = _State.SLEEPING
         window: list[bytes] = []
@@ -135,8 +138,15 @@ class WakeWordListener:
                     window.append(frame)
                     if len(window) >= self._VAD_CHECK_FRAMES:
                         combined = b"".join(window)
-                        if self._vad.is_speech(combined):
+                        is_speech = self._vad.is_speech(combined)
+                        if debug:
+                            import numpy as _np
+                            scores = self._vad._vad.predict(_np.frombuffer(combined, dtype=_np.int16))
+                            print(f"[DEBUG] VAD score={float(scores):.3f} speech={is_speech}")
+                        if is_speech:
                             text = self._transcribe_sync(window)
+                            if debug:
+                                print(f"[DEBUG] Whisper: {text!r}")
                             if self._check_for_word(text, self.wake_word):
                                 print(
                                     f"Wake word detectado! Gravando... "
@@ -146,7 +156,10 @@ class WakeWordListener:
                                 self._vad.reset()
                                 recording = []
                                 state = _State.RECORDING
-                        window = []
+                                window = []
+                                continue
+                        # Sliding window: keep last half as context for next check
+                        window = window[self._VAD_CHECK_FRAMES // 2:]
 
                 elif state == _State.RECORDING:
                     recording.append(frame)

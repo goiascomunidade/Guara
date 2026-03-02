@@ -15,7 +15,8 @@ openai   = ["openai>=1.30.0"]
 whisper  = ["faster-whisper>=1.0.0"]
 deepgram = ["deepgram-sdk>=3.0.0"]
 piper    = ["piper-tts>=1.4.0"]
-wakeword = ["openwakeword>=0.4.0", "pyaudio>=0.2.13"]
+wakeword = ["pvporcupine>=3.0.0", "pvrecorder>=1.2.0", "pyaudio>=0.2.13", "python-dotenv>=1.0.0"]
+websearch = ["duckduckgo-search>=8.0.0"]
 all-providers = [
   "guara[openai]",
   "guara[whisper]",
@@ -23,6 +24,13 @@ all-providers = [
   "guara[piper]",
   "guara[wakeword]",
 ]
+
+[tool.setuptools]
+py-modules = ["cli"]
+packages = []
+
+[project.scripts]
+guara = "cli:main"
 
 [tool.pytest.ini_options]
 pythonpath = [

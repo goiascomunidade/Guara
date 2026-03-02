@@ -137,6 +137,10 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+
+# Porcupine keyword/model files (binary, platform-specific)
+keywords/*.ppn
+keywords/*.pv
 .venv
 env/
 venv/

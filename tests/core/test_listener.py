@@ -4,6 +4,8 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
+from adapters.wakeword_porcupine import PorcupineConfig
+
 
 class TestWakeWordListener(unittest.TestCase):
 
@@ -19,11 +21,15 @@ class TestWakeWordListener(unittest.TestCase):
                 "transcript": "teste",
             }
         )
+        porcupine_config = PorcupineConfig(
+            access_key="test-key",
+            keyword_path="/tmp/test.ppn",
+        )
         return WakeWordListener(
             runtime=runtime,
+            porcupine_config=porcupine_config,
             wake_word=wake_word,
             stop_word=stop_word,
-            vad_threshold=0.5,
         )
 
     def test_init_stores_config(self):

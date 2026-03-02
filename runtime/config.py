@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from runtime.app import GuaraRuntime
+
+_DEFAULT_PROMPT = Path(__file__).resolve().parent.parent / "prompts" / "system.txt"
 
 
 def build_runtime() -> GuaraRuntime:
@@ -32,9 +35,12 @@ def build_runtime() -> GuaraRuntime:
     # --- Build TTS provider ---
     tts_provider = _build_tts(guara_tts)
 
+    # --- Load system prompt ---
+    system_prompt = _load_system_prompt()
+
     # Create runtime — this registers "local" defaults and wires the orchestrator
     # with the default rule-based LLM. We then register and activate real providers.
-    runtime = GuaraRuntime()
+    runtime = GuaraRuntime(system_prompt=system_prompt)
 
     # Register the real LLM and activate it; also update the orchestrator reference.
     runtime.provider_registry.register(
@@ -61,12 +67,43 @@ def build_runtime() -> GuaraRuntime:
         activate=True,
     )
 
+    # --- Register tools ---
+    _register_tools(runtime)
+
     return runtime
 
 
 # ---------------------------------------------------------------------------
 # Private builder helpers
 # ---------------------------------------------------------------------------
+
+def _load_system_prompt() -> str | None:
+    """Load system prompt from GUARA_SYSTEM_PROMPT env var or default file.
+
+    GUARA_SYSTEM_PROMPT can be the prompt text itself or a file path.
+    Falls back to prompts/system.txt in the project root.
+    """
+    custom = os.environ.get("GUARA_SYSTEM_PROMPT", "")
+    if custom:
+        path = Path(custom)
+        if path.is_file():
+            return path.read_text(encoding="utf-8").strip()
+        return custom
+
+    if _DEFAULT_PROMPT.is_file():
+        return _DEFAULT_PROMPT.read_text(encoding="utf-8").strip()
+
+    return None
+
+def _register_tools(runtime: GuaraRuntime) -> None:
+    """Register available tools. Skips gracefully if dependencies are missing."""
+    try:
+        from adapters.tool_websearch import DuckDuckGoNewsTool, DuckDuckGoSearchTool
+        runtime.register_tool(DuckDuckGoSearchTool())
+        runtime.register_tool(DuckDuckGoNewsTool())
+    except Exception:
+        pass  # duckduckgo-search not installed — skip
+
 
 def _build_llm(name: str):
     if name == "openai":

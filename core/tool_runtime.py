@@ -39,6 +39,10 @@ class ToolRouter:
     def list_tools(self) -> list[str]:
         return sorted(self._providers.keys())
 
+    def list_tool_specs(self) -> list:
+        """Return ToolSpec objects for all registered tools."""
+        return [p.tool_spec for p in self._providers.values()]
+
     def get_policy(self, tool_name: str) -> ToolPolicy:
         return self._policies[tool_name]
 

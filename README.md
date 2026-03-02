@@ -30,15 +30,48 @@ plugin contracts, and execution policies described in the system design plan.
 - `tests/`: behavioral tests for the architecture baseline
 - `docs/architecture/`: architecture notes and decisions
 
+## Quick start
+
+1. Clone and install:
+
+```bash
+git clone https://github.com/peraro/Guara.git
+cd Guara
+pip install -e ".[all-providers]"
+```
+
+Or install only what you need:
+
+```bash
+pip install -e ".[openai,whisper,piper,wakeword]"
+```
+
+2. Copy and edit the env file:
+
+```bash
+cp .env.example .env
+# edit .env with your API keys (OPENAI_API_KEY, PORCUPINE_ACCESS_KEY, etc.)
+```
+
+3. Run:
+
+```bash
+guara listen                # Wake-word listener (microphone)
+guara serve                 # HTTP server (default: 0.0.0.0:8080)
+guara serve --port 3000     # HTTP server on custom port
+guara ws                    # WebSocket server (default: 0.0.0.0:8765)
+```
+
 ## Development
 
 Run tests:
 
 ```bash
-python3 -m unittest discover -s tests -v
+pip install -e ".[dev]"
+python3 -m pytest
 ```
 
-Run HTTP runtime:
+Run HTTP runtime (without installing):
 
 ```bash
 python3 -m runtime.main --host 0.0.0.0 --port 8080

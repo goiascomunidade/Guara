@@ -30,6 +30,7 @@ class GuaraRuntime:
         llm_provider=None,
         guardrail=None,
         max_parallel_calls: int = 3,
+        system_prompt: str | None = None,
     ) -> None:
         self.event_bus = EventBus()
         self.event_store = LocalEventStore()
@@ -62,6 +63,7 @@ class GuaraRuntime:
             llm_provider=self.llm_provider,
             tool_router=self.tool_router,
             guardrail=guardrail_instance,
+            system_prompt=system_prompt,
         )
 
     @property

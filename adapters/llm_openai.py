@@ -19,7 +19,7 @@ class OpenAILLMProvider:
         messages: list[dict[str, Any]],
         tools: Any | None = None,
     ) -> dict[str, Any]:
-        kwargs: dict[str, Any] = {"model": self._model, "messages": messages}
+        kwargs: dict[str, Any] = {"model": self._model, "messages": self._convert_messages(messages)}
         if tools:
             kwargs["tools"] = self._convert_tools(tools)
             kwargs["tool_choice"] = "auto"
@@ -53,6 +53,47 @@ class OpenAILLMProvider:
                 delta = chunk.choices[0].delta
                 if delta.content:
                     yield delta.content
+
+    def _convert_messages(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Convert internal message format to OpenAI chat format.
+
+        Handles assistant messages with tool_calls (internal → OpenAI format)
+        and tool result messages.
+        """
+        converted = []
+        for msg in messages:
+            role = msg.get("role")
+            if role == "assistant" and "tool_calls" in msg and msg["tool_calls"]:
+                oai_tool_calls = []
+                for tc in msg["tool_calls"]:
+                    # Already in OpenAI format (has "type" key)
+                    if "type" in tc:
+                        oai_tool_calls.append(tc)
+                    else:
+                        # Internal format → OpenAI format
+                        args = tc.get("arguments", {})
+                        oai_tool_calls.append({
+                            "id": tc.get("call_id", tc.get("id", "")),
+                            "type": "function",
+                            "function": {
+                                "name": tc["name"],
+                                "arguments": json.dumps(args) if isinstance(args, dict) else str(args),
+                            },
+                        })
+                converted.append({
+                    "role": "assistant",
+                    "content": msg.get("content") or None,
+                    "tool_calls": oai_tool_calls,
+                })
+            elif role == "tool":
+                converted.append({
+                    "role": "tool",
+                    "tool_call_id": msg.get("tool_call_id", ""),
+                    "content": str(msg.get("content", "")),
+                })
+            else:
+                converted.append(msg)
+        return converted
 
     def _convert_tools(self, tools: Any) -> list[dict[str, Any]]:
         """Convert ToolSpec list to OpenAI function-calling format."""
